@@ -227,7 +227,7 @@ All endpoints except login require `Authorization: Bearer <token>`.
 ### 1. Clone
 
 ```bash
-git clone https://github.com/<your-username>/SPMS.git
+git clone [https://github.com/Ronyparmar2107/shift_production_management_system.git]
 cd SPMS
 ```
 
