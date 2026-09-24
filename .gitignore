@@ -1,0 +1,89 @@
+# ============================================================
+#  SPMS — root .gitignore
+#  ASP.NET Core 8 (SPMS.Server) + React/Vite (spms.client)
+# ============================================================
+
+# ---------- Visual Studio ----------
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.rsuser
+*.ntvs*
+*.njsproj
+
+# ---------- .NET build output ----------
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ll]og/
+[Ll]ogs/
+*.pdb
+*.cache
+*.tmp
+TestResults/
+[Tt]est[Rr]esult*/
+*.coverage
+*.coveragexml
+coverage/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+!**/packages/build/
+.nuget/
+
+# Publish output
+publish/
+PublishProfiles/
+*.pubxml
+*.pubxml.user
+*.azurePubxml
+
+# ---------- Secrets & local config ----------
+# Keep appsettings.json in the repo WITHOUT real secrets
+# (use `dotnet user-secrets` or environment variables for keys/connection strings)
+appsettings.*.local.json
+appsettings.Local.json
+*.env
+.env
+.env.*
+!.env.example
+secrets.json
+
+# ---------- Node / React / Vite ----------
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- Editors & OS ----------
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sw?
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ---------- Database files (never commit local DBs) ----------
+*.mdf
+*.ldf
+*.ndf
+*.bak
+*.db
+*.sqlite

@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37710.0 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "spms.client", "spms.client\spms.client.esproj", "{8B499CAB-2FAE-C222-3EA1-BB210B003EBB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SPMS.Server", "SPMS.Server\SPMS.Server.csproj", "{94BC133E-DA05-4329-97D3-7DBACA31E147}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8B499CAB-2FAE-C222-3EA1-BB210B003EBB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8B499CAB-2FAE-C222-3EA1-BB210B003EBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8B499CAB-2FAE-C222-3EA1-BB210B003EBB}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{8B499CAB-2FAE-C222-3EA1-BB210B003EBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8B499CAB-2FAE-C222-3EA1-BB210B003EBB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8B499CAB-2FAE-C222-3EA1-BB210B003EBB}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{94BC133E-DA05-4329-97D3-7DBACA31E147}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{94BC133E-DA05-4329-97D3-7DBACA31E147}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94BC133E-DA05-4329-97D3-7DBACA31E147}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{94BC133E-DA05-4329-97D3-7DBACA31E147}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F2A1FE67-1EE5-4886-BC9B-F3AA517D2777}
+	EndGlobalSection
+EndGlobal
