@@ -10,32 +10,32 @@ using SPMS.Server.DTOs;
 namespace SPMS.Server.Services
 {
 
-    public interface ILoginService
+    public interface IAuthService
     {
-        Task<LoginResponseDto> AuthAsync(LoginRequestDto loginRequest);
+        Task<LoginResponseDto> LoginAsync(LoginRequestDto loginRequest);
 
     }
-    public class LoginService : ILoginService
+    public class AuthService : IAuthService
     {
         private readonly AppDbContext _dbcontext;
         private readonly IConfiguration _config;
 
-        public LoginService (AppDbContext dbcontext, IConfiguration configuration )
+        public AuthService (AppDbContext dbcontext, IConfiguration configuration )
         {
             _dbcontext = dbcontext;
             _config = configuration;
         }
 
         
-        public async Task<LoginResponseDto> AuthAsync ( LoginRequestDto loginRequest)
+        public async Task<LoginResponseDto> LoginAsync ( LoginRequestDto loginRequest)
         {
             if(loginRequest.EmployeeNumber == "000")
             {
-                var token1 = GenerateJwtToken(1, "admin", "admin");
+                var token1 = GenerateJwtToken(0, "admin", "admin");
 
                 return new LoginResponseDto
                 {
-                    EmployeeId = 1,
+                    EmployeeId = 0,
                     Name = loginRequest.EmployeeNumber,
                     Role = "admin",
                     Token = token1
@@ -43,7 +43,7 @@ namespace SPMS.Server.Services
             }
 
             // Checking Weather employee exist or not
-            var employee = await _dbcontext.EmpMasters.FirstOrDefaultAsync(e => e.EmployeeNumber == loginRequest.EmployeeNumber && !e.IsDeleted);
+            var employee = await _dbcontext.EmpMasters.FirstOrDefaultAsync(e => e.EmployeeNumber == loginRequest.EmployeeNumber && !e.IsDeleted && e.IsActive != false);
 
             if (employee == null) {
                 return null;
@@ -69,7 +69,7 @@ namespace SPMS.Server.Services
             return new LoginResponseDto
             {
                 EmployeeId = employee.Id,
-                Name = loginRequest.EmployeeNumber,
+                Name = employee.Name,
                 Role = role.Role,
                 Token = token
             };

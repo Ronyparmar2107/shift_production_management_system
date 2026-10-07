@@ -7,20 +7,20 @@ namespace SPMS.Server.Controllers
 {
 
     [ApiController]
-    [Route("api/[controller]")]
-    public class LoginController : Controller
+    [Route("api/[controller]/[action]")]
+    public class AuthController : Controller
     {
-        public readonly ILoginService _loginService;
+        public readonly IAuthService _authService;
 
-        public LoginController(ILoginService loginService)
+        public AuthController(IAuthService authService)
         {
-             _loginService = loginService;
+             _authService = authService;
         }
 
         [HttpPost]
-        public async Task<IActionResult> Auth([FromBody] LoginRequestDto request)
+        public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
         {
-            var response = await _loginService.AuthAsync(request);
+            var response = await _authService.LoginAsync(request);
                 
             if(response == null)
                 return Unauthorized(new { message = "Access Denied for this Employee" });

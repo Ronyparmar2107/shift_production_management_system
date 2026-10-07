@@ -7,7 +7,7 @@ namespace SPMS.Server.Controllers
 {
 
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/[controller]/[action]")]
     [Authorize]
     public class ShiftController : Controller
     {
@@ -25,7 +25,7 @@ namespace SPMS.Server.Controllers
             var response = await _shiftService.logShift(shiftLogDto);
 
             if (response.Id == 0) {
-                return Unauthorized(new { message="Something went wrong while logging shift" });
+                return BadRequest(new { message = "Something went wrong while logging shift" });
             }
             return Ok(response);
         }

@@ -17,7 +17,7 @@ namespace SPMS.Server.Services
             {
                 var claimId = _contextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-                return int.TryParse(claimId, out var id) ? id : null;
+                return long.TryParse(claimId, out var id) ? id : null;
             }
         }
     }
