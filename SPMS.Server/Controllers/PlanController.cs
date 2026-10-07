@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SPMS.Server.DTOs;
 using SPMS.Server.Services;
@@ -7,7 +7,7 @@ namespace SPMS.Server.Controllers
 {
 
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/[controller]/[action]")]
     [Authorize]
     public class PlanController : Controller
     {
@@ -21,12 +21,26 @@ namespace SPMS.Server.Controllers
         [HttpPost]
         public async Task<IActionResult> CreatePlanAsync([FromBody]PlanDto plan)
         {
-            var response = await _planService.CreatePlanAsync(plan);
-             
+            var (response, error) = await _planService.CreatePlanAsync(plan);
+
             if (response == null)
-                return Unauthorized(new { message = "Something Went Wrong while creating new employee" });
+                return BadRequest(new { message = error ?? "Something Went Wrong while creating new plan" });
 
             return Ok(response);
+        }
+
+        // GET /api/Plan/GetPlanTypes  -> [{ planTypeId, type, unit }]
+        [HttpGet]
+        public async Task<IActionResult> GetPlanTypesAsync()
+        {
+            return Ok(await _planService.GetPlanTypesAsync());
+        }
+
+        // GET /api/Plan/GetMyPlans  -> plans the signed-in user created, with Status (Pending / Accepted / Accepted with changes)
+        [HttpGet]
+        public async Task<IActionResult> GetMyPlansAsync()
+        {
+            return Ok(await _planService.GetMyCreatedPlansAsync());
         }
 
         [HttpGet]
@@ -36,35 +50,40 @@ namespace SPMS.Server.Controllers
 
             if (response.Id == 0)
             {
-                Unauthorized(new { message = "Seems like no Plans made for you" });
+                return BadRequest(new { message = "Seems like no Plans made for you" });
             }
             return Ok(response);
         }
 
+        // GET /api/Plan/GetCrewPlans  -> plans assigned to the signed-in crew lead's crew (same shape as GetMyPlans)
+        [HttpGet]
+        public async Task<IActionResult> GetCrewPlansAsync()
+        {
+            return Ok(await _planService.GetCrewPlansAsync());
+        }
+
+        // POST /api/Plan/AcceptPlan   body: PlanDto (only Id is used)
         [HttpPost]
         public async Task<IActionResult> AcceptPlanAsync([FromBody] PlanDto plan)
         {
-            var response = await _planService.AcceptPlanAsync(plan);
-            
-            if(!response)
-            {
-                Unauthorized(new { message = "Something went wrong while approval, contact IT Team" });
-            }
-            return Ok(response);
+            var error = await _planService.AcceptPlanAsync(plan);
 
+            if (error != null)
+                return BadRequest(new { message = error });
+
+            return Ok(new { message = "Plan accepted" });
         }
 
+        // POST /api/Plan/UpdateAndAccept   body: PlanDto (Id, Area, PlanType, Target, StartTime, EndTime, Comment)
         [HttpPost]
         public async Task<IActionResult> UpdateAndAcceptAsync([FromBody] PlanDto planDto)
         {
-            var response = await _planService.UpdateAndAcceptPlanAsync(planDto);
+            var error = await _planService.UpdateAndAcceptPlanAsync(planDto);
 
-            if (!response)
-            {
-                Unauthorized(new { message = "Something went wrong while updating, contact IT Tema" });
-            }
-            return Ok(response);
+            if (error != null)
+                return BadRequest(new { message = error });
 
+            return Ok(new { message = "Plan updated and accepted" });
         }
 
     }

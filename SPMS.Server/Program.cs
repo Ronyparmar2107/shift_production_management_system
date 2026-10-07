@@ -76,6 +76,11 @@ builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IPlanService, PlanService>();
+builder.Services.AddScoped<IShiftService, ShiftService>();
+builder.Services.AddScoped<IAreaService, AreaService>();    
+builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<ICrewService, CrewService>();
+builder.Services.AddScoped<IPlanTypeService, PlanTypeService>();
 
 var app = builder.Build();
 

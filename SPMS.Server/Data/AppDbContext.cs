@@ -38,6 +38,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<ShiftMaster> ShiftMasters { get; set; }
 
+    public virtual DbSet<PlanView> PlanViews { get; set; }
+
  
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -418,6 +420,35 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("updated_at");
             entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
         });
+
+        modelBuilder.Entity<PlanView>(entity =>
+          {
+              entity.HasNoKey();
+              entity.ToView("v_plan_variance");
+              
+              entity.Property(e=>e.PlanId).HasColumnName("plan_id");
+              entity.Property(e => e.PlanType).HasColumnName("type");
+              entity.Property(e => e.IsAccepted).HasColumnName("is_accepted");
+              entity.Property(e => e.Unit).HasColumnName("unit");
+              entity.Property(e => e.Target).HasColumnName("target");
+              entity.Property(e => e.PlannedStart)
+              .HasColumnName("planned_start")
+              .HasColumnType("datetime");
+              entity.Property(e => e.PlannedEnd)
+              .HasColumnName("planned_end")
+              .HasColumnType("datetime");
+              entity.Property(e => e.ActualLoggedAt)
+              .HasColumnName("actuals_logged_at")
+              .HasColumnType("datetime");
+              entity.Property(e => e.ActualValue).HasColumnName("actual_value");
+              entity.Property(e => e.AreaName).HasColumnName("area_name");
+              entity.Property(e => e.CrewId).HasColumnName("crew_id");
+              entity.Property(e => e.EmpName).HasColumnName("emp_name");
+              entity.Property(e => e.ShiftDate).HasColumnName("shift_date");
+              entity.Property(e => e.ShiftType).HasColumnName("shift_type");
+              entity.Property(e => e.LeadEmpId).HasColumnName("lead_emp_id");
+          });
+
 
         OnModelCreatingPartial(modelBuilder);
     }
