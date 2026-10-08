@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 using SPMS.Server.Data;
@@ -19,11 +20,29 @@ namespace SPMS.Server.Services
     {
         private readonly AppDbContext _dbcontext;
         private readonly IConfiguration _config;
+        private readonly IHostEnvironment _env;
 
-        public AuthService (AppDbContext dbcontext, IConfiguration configuration )
+        public AuthService (AppDbContext dbcontext, IConfiguration configuration, IHostEnvironment env)
         {
             _dbcontext = dbcontext;
             _config = configuration;
+            _env = env;
+        }
+
+        // Built-in admin "000" (no database row) for seeding the first employees.
+        //  - Development: allowed without a password unless Auth:BootstrapAdminPassword is set.
+        //  - Any other environment: only allowed when Auth:BootstrapAdminPassword is set, and the
+        //    password must match. Leave it unset in production once real admins exist.
+        private bool IsBootstrapLoginAllowed(string? suppliedPassword)
+        {
+            var configured = _config["Auth:BootstrapAdminPassword"];
+
+            if (string.IsNullOrEmpty(configured))
+                return _env.IsDevelopment();
+
+            return CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(suppliedPassword ?? ""),
+                Encoding.UTF8.GetBytes(configured));
         }
 
         
@@ -31,6 +50,9 @@ namespace SPMS.Server.Services
         {
             if(loginRequest.EmployeeNumber == "000")
             {
+                if (!IsBootstrapLoginAllowed(loginRequest.Password))
+                    return null;
+
                 var token1 = GenerateJwtToken(0, "admin", "admin");
 
                 return new LoginResponseDto

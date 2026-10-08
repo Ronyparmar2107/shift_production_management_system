@@ -8,13 +8,32 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---- Configuration check -------------------------------------------------
+// Fail at startup (with a clear message) instead of at the first request when a
+// secret is missing. Real values come from `dotnet user-secrets` in development
+// and from environment variables on the server (Jwt__Key, ConnectionStrings__DefaultConnection, ...).
+const string SecretPlaceholder = "SET-VIA-USER-SECRETS";
+
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey == SecretPlaceholder || Encoding.UTF8.GetByteCount(jwtKey) < 32)
+    throw new InvalidOperationException("Jwt:Key is missing or too short (min 32 characters). Set it with user-secrets (dev) or the Jwt__Key environment variable (prod).");
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString) || connectionString == SecretPlaceholder)
+    throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not set. Use user-secrets (dev) or the ConnectionStrings__DefaultConnection environment variable (prod).");
+
+// Allowed frontend origins come from config (Cors:AllowedOrigins), one set per environment
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+if (allowedOrigins.Length == 0 || allowedOrigins.Any(o => o.Contains("CHANGE-ME", StringComparison.OrdinalIgnoreCase)))
+    throw new InvalidOperationException("Cors:AllowedOrigins is not configured for this environment. Set the frontend URL in appsettings.{Environment}.json or the Cors__AllowedOrigins__0 environment variable.");
+
 // Add services to the container.
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
 
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -28,8 +47,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
     }
     );
@@ -60,7 +78,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontendApp", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(allowedOrigins)
         .AllowAnyHeader()
         .AllowAnyMethod();
     });
