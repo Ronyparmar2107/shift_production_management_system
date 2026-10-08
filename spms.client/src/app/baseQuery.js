@@ -1,5 +1,6 @@
 import { fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { logout } from '../features/auth/authSlice';
+import { API_URL } from './config';
 
 // Shared base query for every authenticated API slice:
 //  - attaches the JWT as a Bearer token
@@ -7,7 +8,7 @@ import { logout } from '../features/auth/authSlice';
 // Usage: baseQuery: baseQueryWithAuth('/api/plan')
 export const baseQueryWithAuth = (pathPrefix = '') => {
     const rawBaseQuery = fetchBaseQuery({
-        baseUrl: import.meta.env.VITE_API_URL + pathPrefix,
+        baseUrl: API_URL + pathPrefix,
         prepareHeaders: (headers, { getState }) => {
             const token = getState().auth.token;
             if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -18,7 +19,6 @@ export const baseQueryWithAuth = (pathPrefix = '') => {
     return async (args, api, extraOptions) => {
         const result = await rawBaseQuery(args, api, extraOptions);
 
-        console.log('baseQueryWithAuth result:', result); // Debugging line
         if (result.error?.status === 401) {
             api.dispatch(logout());
         }

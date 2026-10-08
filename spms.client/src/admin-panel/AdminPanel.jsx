@@ -205,7 +205,7 @@ export default function AdminPanel() {
               </TextField>
             )}
             <Box>
-              <Button type="submit" variant="contained" size="small" disabled={section.crud && saving}>
+              <Button type="submit" variant="contained" size="small" loading={Boolean(section.crud) && saving}>
                 {section.crud && areaMode === 'update' ? 'Update' : 'Save'}
               </Button>
             </Box>

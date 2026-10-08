@@ -311,7 +311,7 @@ export default function EmployeeManagement() {
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={closeDialog} size="small">Cancel</Button>
-            <Button type="submit" variant="contained" size="small" disabled={creating || updating}>
+            <Button type="submit" variant="contained" size="small" loading={creating || updating}>
               {isEdit ? 'Update' : 'Save'}
             </Button>
           </DialogActions>
@@ -328,7 +328,7 @@ export default function EmployeeManagement() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setDeleting(null)} size="small">Cancel</Button>
-          <Button onClick={confirmDelete} variant="contained" color="error" size="small" disabled={updating}>
+          <Button onClick={confirmDelete} variant="contained" color="error" size="small" loading={updating}>
             Delete
           </Button>
         </DialogActions>

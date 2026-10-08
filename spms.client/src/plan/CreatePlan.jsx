@@ -272,7 +272,7 @@ export default function CreatePlan() {
             <Grid size={12}>
               <Stack spacing={2}>
                 <Box>
-                  <Button type="submit" variant="contained" size="small" disabled={saving || timesInvalid}>
+                  <Button type="submit" variant="contained" size="small" loading={saving} disabled={Boolean(timesInvalid)}>
                     Create plan
                   </Button>
                 </Box>

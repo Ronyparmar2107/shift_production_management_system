@@ -73,7 +73,7 @@ export default function SignIn(props) {
   const [passwordErrorMessage, setPasswordErrorMessage] = React.useState('');
   const [open, setOpen] = React.useState(false);
 
-  const [login] = useLoginMutation();
+  const [login, { isLoading: signingIn }] = useLoginMutation();
 
 
   const handleClickOpen = () => {
@@ -199,6 +199,7 @@ export default function SignIn(props) {
               type="submit"
               fullWidth
               variant="contained"
+              loading={signingIn}
               onClick={validateInputs}
             >
               Sign in

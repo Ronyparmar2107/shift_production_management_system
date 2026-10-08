@@ -259,7 +259,7 @@ export default function CrewPlans() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setAccepting(null)} size="small">Cancel</Button>
-          <Button onClick={confirmAccept} variant="contained" size="small" disabled={accepting}>
+          <Button onClick={confirmAccept} variant="contained" size="small" loading={accepting}>
             Accept
           </Button>
         </DialogActions>
@@ -350,7 +350,7 @@ export default function CrewPlans() {
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={() => setEditing(null)} size="small">Cancel</Button>
-            <Button type="submit" variant="contained" size="small" disabled={updating || timesInvalid}>
+            <Button type="submit" variant="contained" size="small" loading={updating} disabled={Boolean(timesInvalid)}>
               Update and accept
             </Button>
           </DialogActions>

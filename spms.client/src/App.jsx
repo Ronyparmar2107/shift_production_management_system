@@ -1,14 +1,19 @@
+import { lazy, Suspense } from 'react'
 import { useSelector } from 'react-redux'
 import { Routes, Route, Navigate } from 'react-router-dom'
 
 import SignIn from './sign-in/SignIn.jsx'
 import Dashboard from './dashboard/Dashboard.jsx'
-import DashboardHome from './dashboard/DashboardHome.jsx'
-import AdminPanel from './admin-panel/AdminPanel.jsx'
-import CreatePlan from './plan/CreatePlan.jsx'
-import MyPlans from './plan/MyPlans.jsx'
-import CrewPlans from './plan/CrewPlans.jsx'
+const DashboardHome = lazy(() => import('./dashboard/DashboardHome.jsx'))
+const AdminPanel = lazy(() => import('./admin-panel/AdminPanel.jsx'))
+const CreatePlan = lazy(() => import('./plan/CreatePlan.jsx'))
+const MyPlans = lazy(() => import('./plan/MyPlans.jsx'))
+const CrewPlans = lazy(() => import('./plan/CrewPlans.jsx'))
+import PageLoader from './components/PageLoader.jsx'
 import './App.css'
+
+// Pages load on demand; show a spinner while a page's code is fetched.
+const page = (element) => <Suspense fallback={<PageLoader />}>{element}</Suspense>
 
 function App() {
   const authState = useSelector((state) => state.auth);
@@ -33,11 +38,11 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Dashboard userId={userId} role={role} name={name} token={token} />}>
-        <Route index element={<DashboardHome />} />
-        <Route path="admin" element={<AdminPanel />} />
-        <Route path="plans/create" element={<CreatePlan />} />
-        <Route path="plans/mine" element={<MyPlans />} />
-        <Route path="plans/crew" element={<CrewPlans />} />
+        <Route index element={page(<DashboardHome />)} />
+        <Route path="admin" element={page(<AdminPanel />)} />
+        <Route path="plans/create" element={page(<CreatePlan />)} />
+        <Route path="plans/mine" element={page(<MyPlans />)} />
+        <Route path="plans/crew" element={page(<CrewPlans />)} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
