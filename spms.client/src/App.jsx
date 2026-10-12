@@ -8,7 +8,8 @@ const DashboardHome = lazy(() => import('./dashboard/DashboardHome.jsx'))
 const AdminPanel = lazy(() => import('./admin-panel/AdminPanel.jsx'))
 const CreatePlan = lazy(() => import('./plan/CreatePlan.jsx'))
 const MyPlans = lazy(() => import('./plan/MyPlans.jsx'))
-const CrewPlans = lazy(() => import('./plan/CrewPlans.jsx'))
+const ShiftManagement = lazy(() => import('./plan/ShiftManagement.jsx'))
+const Actuals = lazy(() => import('./actuals/Actuals.jsx'))
 import PageLoader from './components/PageLoader.jsx'
 import './App.css'
 
@@ -42,7 +43,8 @@ function App() {
         <Route path="admin" element={page(<AdminPanel />)} />
         <Route path="plans/create" element={page(<CreatePlan />)} />
         <Route path="plans/mine" element={page(<MyPlans />)} />
-        <Route path="plans/crew" element={page(<CrewPlans />)} />
+        <Route path="shift" element={page(<ShiftManagement />)} />
+        <Route path="actuals" element={page(<Actuals />)} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

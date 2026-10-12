@@ -8,6 +8,8 @@ import { roleApi } from '../features/role/roleApi';
 import { crewApi } from '../features/crew/crewApi';
 import { planApi } from '../features/plan/planApi';
 import { planTypeApi } from '../features/planType/planTypeApi';
+import { shiftApi } from '../features/shift/shiftApi';
+import { actualsApi } from '../features/actuals/actualsApi';
 
 
 export const store = configureStore({
@@ -20,7 +22,9 @@ export const store = configureStore({
         [roleApi.reducerPath]: roleApi.reducer,
         [crewApi.reducerPath]: crewApi.reducer,
         [planApi.reducerPath]: planApi.reducer,
-        [planTypeApi.reducerPath]: planTypeApi.reducer
+        [planTypeApi.reducerPath]: planTypeApi.reducer,
+        [shiftApi.reducerPath]: shiftApi.reducer,
+        [actualsApi.reducerPath]: actualsApi.reducer
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware().concat(
@@ -30,6 +34,8 @@ export const store = configureStore({
             roleApi.middleware,
             crewApi.middleware,
             planApi.middleware,
-            planTypeApi.middleware
+            planTypeApi.middleware,
+            shiftApi.middleware,
+            actualsApi.middleware
         )
 });

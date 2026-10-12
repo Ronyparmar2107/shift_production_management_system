@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -41,15 +42,16 @@ const shiftWindow = (date, shiftName) => {
   };
 };
 
-const initialForm = () => ({
-  date: todayISO(),
-  shift: 'Morning',
+// `prefill` ({ date, shift }) comes from the Shift screen's "Create plan" button
+const initialForm = (prefill) => ({
+  date: prefill?.date ?? todayISO(),
+  shift: prefill?.shift ?? 'Morning',
   crewLeadId: '',
   area: '',
   planType: '',
   target: '',
   comment: '',
-  ...shiftWindow(todayISO(), 'Morning'),
+  ...shiftWindow(prefill?.date ?? todayISO(), prefill?.shift ?? 'Morning'),
 });
 
 const errorMessage = (err) => err?.data?.message ?? 'Request failed';
@@ -60,7 +62,10 @@ export default function CreatePlan() {
   const { data: planTypes = [], isLoading: typesLoading } = useGetAllPlanTypesQuery();
   const [createPlan, { isLoading: saving }] = useCreatePlanMutation();
 
-  const [form, setForm] = useState(initialForm);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const fromShift = Boolean(location.state?.date);
+  const [form, setForm] = useState(() => initialForm(location.state));
   const [feedback, setFeedback] = useState(null);
 
   const unit = planTypes.find((t) => t.type === form.planType)?.unit;
@@ -115,9 +120,16 @@ export default function CreatePlan() {
 
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-      <Typography component="h2" variant="h6" sx={{ mb: 2 }}>
-        Create Plan
-      </Typography>
+      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography component="h2" variant="h6">
+          Create Plan
+        </Typography>
+        {fromShift && (
+          <Button size="small" onClick={() => navigate('/shift')}>
+            Back to shift
+          </Button>
+        )}
+      </Stack>
 
       <Card sx={{ p: { xs: 2, md: 3 } }}>
         <Box component="form" onSubmit={handleSubmit}>

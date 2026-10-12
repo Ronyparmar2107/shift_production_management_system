@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -23,17 +24,28 @@ import { DataGrid } from '@mui/x-data-grid';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import {
-  useGetCrewPlansQuery,
+  useGetShiftOverviewQuery,
+  useStartShiftMutation,
+  useEndShiftMutation,
+} from '../features/shift/shiftApi';
+import {
   useAcceptPlanMutation,
   useUpdateAndAcceptPlanMutation,
 } from '../features/plan/planApi';
 import { useGetAllAreasQuery } from '../features/area/areaApi';
 import { useGetAllPlanTypesQuery } from '../features/planType/planTypeApi';
+import { SHIFTS, currentShift, utcDate, fmtClock } from '../app/shiftUtils';
 
-const STATUS_COLOR = {
+const PLAN_STATUS_COLOR = {
   Pending: 'warning',
   Accepted: 'success',
-  'Accepted with changes': 'info',
+  Updated: 'info',
+};
+
+const SHIFT_STATUS = {
+  NotStarted: { label: 'Not started', color: 'warning' },
+  Running: { label: 'Running', color: 'success' },
+  Ended: { label: 'Ended', color: 'default' },
 };
 
 const FILTERS = ['Pending', 'Accepted', 'All'];
@@ -59,24 +71,38 @@ const toPlanDto = (row) => ({
   comment: row.comment,
 });
 
-export default function CrewPlans() {
-  const { data: plans = [], isLoading, isError } = useGetCrewPlansQuery(undefined, {
-    pollingInterval: 30000,
-    refetchOnFocus: true,
-  });
+export default function ShiftManagement() {
+  const navigate = useNavigate();
+  const initial = useMemo(currentShift, []);
+  const [date, setDate] = useState(initial.date);
+  const [shift, setShift] = useState(initial.shift);
+
+  const { data: overview, isLoading, isError, error } = useGetShiftOverviewQuery(
+    { date, shiftType: shift },
+    { pollingInterval: 30000, refetchOnFocus: true, refetchOnMountOrArgChange: true, skip: !date },
+  );
   const { data: areas = [] } = useGetAllAreasQuery();
   const { data: planTypes = [] } = useGetAllPlanTypesQuery();
+  const [startShift, { isLoading: starting }] = useStartShiftMutation();
+  const [endShift, { isLoading: ending }] = useEndShiftMutation();
   const [acceptPlan, { isLoading: accepting }] = useAcceptPlanMutation();
   const [updateAndAccept, { isLoading: updating }] = useUpdateAndAcceptPlanMutation();
 
-  const [filter, setFilter] = useState('Pending');
-  const [accepting_, setAccepting] = useState(null); // plan row awaiting accept confirmation
+  const [filter, setFilter] = useState('All');
+  const [confirmStart, setConfirmStart] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [toAccept, setToAccept] = useState(null); // plan row awaiting accept confirmation
   const [editing, setEditing] = useState(null); // plan row being edited
   const [form, setForm] = useState({});
   const [feedback, setFeedback] = useState(null);
 
+  const status = overview?.status ?? 'NotStarted';
+  const plans = useMemo(() => overview?.plans ?? [], [overview]);
+  const running = status === 'Running';
+  const ended = status === 'Ended';
+
   const pendingCount = plans.filter((p) => p.status === 'Pending').length;
-  const acceptedCount = plans.length - pendingCount;
+  const counts = { Pending: pendingCount, Accepted: plans.length - pendingCount, All: plans.length };
 
   const rows = useMemo(() => {
     if (filter === 'Pending') return plans.filter((p) => p.status === 'Pending');
@@ -84,10 +110,28 @@ export default function CrewPlans() {
     return plans;
   }, [plans, filter]);
 
-  const counts = { Pending: pendingCount, Accepted: acceptedCount, All: plans.length };
-
   const unit = planTypes.find((t) => t.type === form.planType)?.unit;
   const timesInvalid = form.startTime && form.endTime && form.endTime <= form.startTime;
+
+  const handleStart = async () => {
+    try {
+      await startShift({ date, shiftType: shift }).unwrap();
+      setFeedback({ severity: 'success', message: `${shift} shift started` });
+    } catch (err) {
+      setFeedback({ severity: 'error', message: errorMessage(err) });
+    }
+    setConfirmStart(false);
+  };
+
+  const handleEnd = async () => {
+    try {
+      await endShift({ id: overview.shiftId }).unwrap();
+      setFeedback({ severity: 'success', message: `${shift} shift ended. Actuals are now locked.` });
+    } catch (err) {
+      setFeedback({ severity: 'error', message: errorMessage(err) });
+    }
+    setConfirmEnd(false);
+  };
 
   const openEdit = (row) => {
     setForm({
@@ -105,14 +149,14 @@ export default function CrewPlans() {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
 
   const confirmAccept = async () => {
-    const row = accepting_;
+    const row = toAccept;
     try {
       await acceptPlan(toPlanDto(row)).unwrap();
       setFeedback({ severity: 'success', message: `Accepted: ${row.planType} in ${row.area}` });
     } catch (err) {
       setFeedback({ severity: 'error', message: errorMessage(err) });
     }
-    setAccepting(null);
+    setToAccept(null);
   };
 
   const handleUpdateAndAccept = async (event) => {
@@ -136,51 +180,53 @@ export default function CrewPlans() {
   };
 
   const columns = [
-    { field: 'date', headerName: 'Date', width: 110 },
-    { field: 'shiftType', headerName: 'Shift', width: 100 },
     { field: 'area', headerName: 'Area', flex: 1, minWidth: 170 },
-    { field: 'planType', headerName: 'Activity', width: 140 },
+    { field: 'planType', headerName: 'Activity', width: 130 },
+    {
+      field: 'crew',
+      headerName: 'Crew',
+      width: 170,
+      valueGetter: (value, row) => `${row.crewName} · ${row.leadName}`,
+    },
     {
       field: 'target',
       headerName: 'Target',
-      width: 130,
+      width: 120,
       valueGetter: (value, row) => (row.target != null ? `${row.target} ${row.unit}` : ''),
     },
     {
       field: 'window',
       headerName: 'Planned window',
-      width: 150,
+      width: 140,
       sortable: false,
       valueGetter: (value, row) => `${fmtTime(row.startTime)} – ${fmtTime(row.endTime)}`,
     },
-    { field: 'comment', headerName: 'Comment', flex: 1, minWidth: 160 },
+    { field: 'comment', headerName: 'Comment', flex: 1, minWidth: 140 },
     {
       field: 'status',
       headerName: 'Status',
-      width: 190,
+      width: 110,
       renderCell: (params) => (
-        <Chip
-          label={params.value}
-          size="small"
-          color={STATUS_COLOR[params.value] ?? 'default'}
-          variant="outlined"
-        />
+        <Chip label={params.value} size="small" color={PLAN_STATUS_COLOR[params.value] ?? 'default'} variant="outlined" />
       ),
     },
+    { field: 'createdByName', headerName: 'Created by', width: 130 },
+    { field: 'acceptedByName', headerName: 'Accepted by', width: 130 },
+    { field: 'updatedByName', headerName: 'Updated by', width: 130 },
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 110,
+      width: 100,
       sortable: false,
       filterable: false,
       disableColumnMenu: true,
       align: 'right',
       headerAlign: 'right',
       renderCell: (params) =>
-        params.row.status === 'Pending' ? (
+        running && params.row.status === 'Pending' ? (
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', height: '100%' }}>
             <Tooltip title="Accept as is">
-              <IconButton size="small" aria-label="Accept plan" onClick={() => setAccepting(params.row)}>
+              <IconButton size="small" aria-label="Accept plan" onClick={() => setToAccept(params.row)}>
                 <CheckCircleRoundedIcon />
               </IconButton>
             </Tooltip>
@@ -197,8 +243,61 @@ export default function CrewPlans() {
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
       <Typography component="h2" variant="h6" sx={{ mb: 2 }}>
-        Crew Plans
+        Shift
       </Typography>
+
+      <Card sx={{ p: { xs: 2, md: 3 }, mb: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'center' } }}>
+          <TextField
+            type="date"
+            label="Date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            size="small"
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField select label="Shift" value={shift} onChange={(e) => setShift(e.target.value)} size="small" sx={{ minWidth: 150 }}>
+            {SHIFTS.map((s) => (
+              <MenuItem key={s} value={s}>{s}</MenuItem>
+            ))}
+          </TextField>
+
+          <Chip
+            label={SHIFT_STATUS[status].label}
+            color={SHIFT_STATUS[status].color}
+            variant={running ? 'filled' : 'outlined'}
+          />
+          {overview?.startedAt && (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Started {fmtClock(utcDate(overview.startedAt))}
+              {overview.startedByName ? ` by ${overview.startedByName}` : ''}
+              {overview.endedAt ? `, ended ${fmtClock(utcDate(overview.endedAt))}` : ''}
+            </Typography>
+          )}
+
+          <Box sx={{ flexGrow: 1 }} />
+
+          {!ended && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => navigate('/plans/create', { state: { date, shift } })}
+            >
+              Create plan
+            </Button>
+          )}
+          {status === 'NotStarted' && (
+            <Button variant="contained" size="small" onClick={() => setConfirmStart(true)} disabled={!date}>
+              Start shift
+            </Button>
+          )}
+          {running && (
+            <Button variant="contained" color="error" size="small" onClick={() => setConfirmEnd(true)}>
+              End shift
+            </Button>
+          )}
+        </Stack>
+      </Card>
 
       <Card sx={{ p: { xs: 2, md: 3 } }}>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1, mb: 2 }}>
@@ -216,7 +315,7 @@ export default function CrewPlans() {
 
         {isError && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            Couldn&apos;t load plans. Check the API is running and you&apos;re signed in.
+            {errorMessage(error)}
           </Alert>
         )}
         {feedback && (
@@ -224,9 +323,24 @@ export default function CrewPlans() {
             {feedback.message}
           </Alert>
         )}
-        {!isLoading && !isError && plans.length === 0 && (
+        {!isLoading && !isError && status === 'NotStarted' && plans.length > 0 && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            No plans for you yet. Plans appear here when someone creates one for the crew you lead.
+            Start the shift to accept its plans.
+          </Alert>
+        )}
+        {!isLoading && !isError && plans.length === 0 && (
+          <Alert
+            severity="info"
+            sx={{ mb: 2 }}
+            action={
+              !ended && (
+                <Button color="inherit" size="small" onClick={() => navigate('/plans/create', { state: { date, shift } })}>
+                  Create plan
+                </Button>
+              )
+            }
+          >
+            No plans for this shift yet.
           </Alert>
         )}
 
@@ -248,17 +362,49 @@ export default function CrewPlans() {
         </Box>
       </Card>
 
-      {/* Accept as is */}
-      <Dialog open={Boolean(accepting_)} onClose={() => setAccepting(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Accept plan?</DialogTitle>
+      {/* Start shift */}
+      <Dialog open={confirmStart} onClose={() => setConfirmStart(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Start {shift} shift?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {accepting_?.planType} in {accepting_?.area}, target {accepting_?.target} {accepting_?.unit} (
-            {accepting_?.shiftType}, {accepting_?.date}). Once accepted, the plan is locked.
+            {date}. You will be recorded as the supervisor. Plans can be accepted once the shift is running.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setAccepting(null)} size="small">Cancel</Button>
+          <Button onClick={() => setConfirmStart(false)} size="small">Cancel</Button>
+          <Button onClick={handleStart} variant="contained" size="small" loading={starting}>
+            Start shift
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* End shift */}
+      <Dialog open={confirmEnd} onClose={() => setConfirmEnd(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>End {shift} shift?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Crew leads will no longer be able to log actuals for this shift. This can&apos;t be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setConfirmEnd(false)} size="small">Cancel</Button>
+          <Button onClick={handleEnd} variant="contained" color="error" size="small" loading={ending}>
+            End shift
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Accept as is */}
+      <Dialog open={Boolean(toAccept)} onClose={() => setToAccept(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Accept plan?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {toAccept?.planType} in {toAccept?.area}, target {toAccept?.target} {toAccept?.unit} for{' '}
+            {toAccept?.crewName}. Once accepted, the plan is locked.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setToAccept(null)} size="small">Cancel</Button>
           <Button onClick={confirmAccept} variant="contained" size="small" loading={accepting}>
             Accept
           </Button>

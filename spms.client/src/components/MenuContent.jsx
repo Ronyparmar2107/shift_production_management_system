@@ -5,59 +5,45 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
-import AnalyticsRoundedIcon from '@mui/icons-material/AnalyticsRounded';
+import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
 import ListAltRoundedIcon from '@mui/icons-material/ListAltRounded';
-import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
-import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
-import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
-import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
-import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
-import HelpRoundedIcon from '@mui/icons-material/HelpRounded';
+import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded';
+import EditNoteRoundedIcon from '@mui/icons-material/EditNoteRounded';
+import { useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-// path: null = not wired to a route yet (template placeholder, still inert)
+// Same matching rule as the API: ignore case, spaces and punctuation
+const normalize = (value) => (value ?? '').toString().replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+// roles: who sees the item (omit = everyone). Admin sees everything except the crew lead's Actuals screen.
 const mainListItems = [
   { text: 'Home', icon: <HomeRoundedIcon />, path: '/' },
-  { text: 'Admin Panel', icon: <HomeRoundedIcon />, path: '/admin' },
-  { text: 'Create Plan', icon: <EventNoteRoundedIcon />, path: '/plans/create' },
-  { text: 'My Plans', icon: <ListAltRoundedIcon />, path: '/plans/mine' },
-  { text: 'Crew Plans', icon: <FactCheckRoundedIcon />, path: '/plans/crew' },
-  { text: 'Analytics', icon: <AnalyticsRoundedIcon />, path: null },
-  { text: 'Clients', icon: <PeopleRoundedIcon />, path: null },
-  { text: 'Tasks', icon: <AssignmentRoundedIcon />, path: null },
-];
-
-const secondaryListItems = [
-  { text: 'Settings', icon: <SettingsRoundedIcon />, path: null },
-  { text: 'About', icon: <InfoRoundedIcon />, path: null },
-  { text: 'Feedback', icon: <HelpRoundedIcon />, path: null },
+  { text: 'Admin Panel', icon: <AdminPanelSettingsRoundedIcon />, path: '/admin', roles: ['Admin'] },
+  { text: 'Create Plan', icon: <EventNoteRoundedIcon />, path: '/plans/create', roles: ['Admin', 'MinePlanner', 'ShiftSupervisor'] },
+  { text: 'My Plans', icon: <ListAltRoundedIcon />, path: '/plans/mine', roles: ['Admin', 'MinePlanner', 'ShiftSupervisor'] },
+  { text: 'Shift', icon: <PlayCircleRoundedIcon />, path: '/shift', roles: ['Admin', 'ShiftSupervisor'] },
+  { text: 'Actuals', icon: <EditNoteRoundedIcon />, path: '/actuals', roles: ['CrewLead'] },
 ];
 
 export default function MenuContent() {
   const navigate = useNavigate();
   const location = useLocation();
+  const role = useSelector((state) => state.auth.role);
+
+  const visible = mainListItems.filter(
+    (item) => !item.roles || item.roles.some((r) => normalize(r) === normalize(role)),
+  );
 
   return (
-    <Stack sx={{ flexGrow: 1, p: 1, justifyContent: 'space-between' }}>
+    <Stack sx={{ flexGrow: 1, p: 1 }}>
       <List dense>
-        {mainListItems.map((item) => (
+        {visible.map((item) => (
           <ListItem key={item.text} disablePadding sx={{ display: 'block' }}>
             <ListItemButton
               selected={item.path === location.pathname}
-              disabled={!item.path}
-              onClick={() => item.path && navigate(item.path)}
+              onClick={() => navigate(item.path)}
             >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-      <List dense>
-        {secondaryListItems.map((item) => (
-          <ListItem key={item.text} disablePadding sx={{ display: 'block' }}>
-            <ListItemButton disabled={!item.path} onClick={() => item.path && navigate(item.path)}>
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.text} />
             </ListItemButton>

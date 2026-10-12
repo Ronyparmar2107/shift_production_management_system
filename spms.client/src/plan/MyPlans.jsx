@@ -17,10 +17,10 @@ import { useGetMyPlansQuery } from '../features/plan/planApi';
 const STATUS_COLOR = {
   Pending: 'warning',
   Accepted: 'success',
-  'Accepted with changes': 'info',
+  'Updated': 'info',
 };
 
-const FILTERS = ['All', 'Pending', 'Accepted', 'Accepted with changes'];
+const FILTERS = ['All', 'Pending', 'Accepted', 'Updated'];
 
 const fmtTime = (value) =>
   value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
@@ -41,7 +41,7 @@ export default function MyPlans() {
   const [search, setSearch] = useState('');
 
   const counts = useMemo(() => {
-    const c = { All: plans.length, Pending: 0, Accepted: 0, 'Accepted with changes': 0 };
+    const c = { All: plans.length, Pending: 0, Accepted: 0, 'Updated': 0 };
     plans.forEach((p) => {
       c[p.status] = (c[p.status] ?? 0) + 1;
     });
