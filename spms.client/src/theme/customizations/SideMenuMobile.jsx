@@ -6,12 +6,15 @@ import Drawer, { drawerClasses } from '@mui/material/Drawer';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
-import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded';
-import MenuButton from './MenuButton';
 import MenuContent from '../../components/MenuContent';
-import CardAlert from './CardAlert';
+import { useDispatch } from 'react-redux';
+import { logout } from '../../features/auth/authSlice';
+import { useCurrentUser } from '../../features/auth/useCurrentUser';
 
 function SideMenuMobile({ open, toggleDrawer }) {
+  const dispatch = useDispatch();
+  const { name, roleLabel, initials } = useCurrentUser();
+
   return (
     <Drawer
       anchor="right"
@@ -36,28 +39,29 @@ function SideMenuMobile({ open, toggleDrawer }) {
             direction="row"
             sx={{ gap: 1, alignItems: 'center', flexGrow: 1, p: 1 }}
           >
-            <Avatar
-              sizes="small"
-              alt="Riley Carter"
-              src="/static/images/avatar/7.jpg"
-              sx={{ width: 24, height: 24 }}
-            />
-            <Typography component="p" variant="h6">
-              Riley Carter
-            </Typography>
+            <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>{initials}</Avatar>
+            <div>
+              <Typography component="p" variant="h6" sx={{ lineHeight: 1.2 }}>
+                {name}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {roleLabel}
+              </Typography>
+            </div>
           </Stack>
-          <MenuButton showBadge>
-            <NotificationsRoundedIcon />
-          </MenuButton>
         </Stack>
         <Divider />
         <Stack sx={{ flexGrow: 1 }}>
           <MenuContent />
           <Divider />
         </Stack>
-        <CardAlert />
         <Stack sx={{ p: 2 }}>
-          <Button variant="outlined" fullWidth startIcon={<LogoutRoundedIcon />}>
+          <Button
+            variant="outlined"
+            fullWidth
+            startIcon={<LogoutRoundedIcon />}
+            onClick={() => dispatch(logout())}
+          >
             Logout
           </Button>
         </Stack>

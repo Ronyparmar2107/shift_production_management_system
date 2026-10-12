@@ -2,23 +2,17 @@ import * as React from 'react';
 
 import { useLoginMutation } from '../features/auth/authApi';
 
-import { useDispatch } from 'react-redux';
-
-
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Checkbox from '@mui/material/Checkbox';
 import CssBaseline from '@mui/material/CssBaseline';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import FormLabel from '@mui/material/FormLabel';
 import FormControl from '@mui/material/FormControl';
-import Link from '@mui/material/Link';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import MuiCard from '@mui/material/Card';
 import { styled } from '@mui/material/styles';
-import ForgotPassword from '../components/ForgotPassword';
 import AppTheme from '../theme/AppTheme';
 import { SitemarkIcon } from '../components/CustomIcons';
 
@@ -66,51 +60,33 @@ const SignInContainer = styled(Stack)(({ theme }) => ({
   },
 }));
 
+// Turns a failed login request into a message a person can act on.
+function loginErrorMessage(error) {
+  if (!error) return '';
+  if (error.status === 401) return 'Employee ID or password is incorrect.';
+  if (error.status === 'FETCH_ERROR') {
+    return "Can't reach the server. Check your connection and try again.";
+  }
+  if (typeof error.status === 'number' && error.status >= 500) {
+    return 'The server ran into a problem. Please try again in a moment.';
+  }
+  return error.data?.message ?? 'Sign in failed. Please try again.';
+}
+
 export default function SignIn(props) {
   const [empIdError, setEmpIdError] = React.useState(false);
   const [empIdErrorMessage, setEmpIdErrorMessage] = React.useState('');
   const [passwordError, setPasswordError] = React.useState(false);
   const [passwordErrorMessage, setPasswordErrorMessage] = React.useState('');
-  const [open, setOpen] = React.useState(false);
 
-  const [login, { isLoading: signingIn }] = useLoginMutation();
+  const [login, { isLoading: signingIn, error: loginError, reset }] = useLoginMutation();
 
 
-  const handleClickOpen = () => {
-    setOpen(true);
-  };
-
-  const handleClose = () => {
-    setOpen(false);
-  };
-
-  const handleSubmit = async (event) => {
-    if (empIdError || passwordError) {
-      event.preventDefault();
-      return;
-    }
-    const data = new FormData(event.currentTarget);
-
-    event.preventDefault();
-    // console.log({
-    //   empId: data.get('emp_id'),
-    //   password: data.get('password'),
-    // });
-
-    await login({
-      emp_id: data.get('emp_id'),
-      password: data.get('password'),
-    });
-
-  };
-
-  const validateInputs = () => {
-    const empId = document.getElementById('empId');
-    const password = document.getElementById('password');
-
+  // Checks the two fields and shows a message under each one that is wrong.
+  const validateInputs = (empId, password) => {
     let isValid = true;
 
-    if (!empId.value || empId.value.length < 3) {
+    if (!empId || empId.length < 3) {
       setEmpIdError(true);
       setEmpIdErrorMessage('Please enter your Employee ID.');
       isValid = false;
@@ -119,15 +95,33 @@ export default function SignIn(props) {
       setEmpIdErrorMessage('');
     }
 
-    if (!password.value) {
+    if (!password) {
       setPasswordError(true);
-      setPasswordErrorMessage('Password must be at least 6 characters long.');
+      setPasswordErrorMessage('Please enter your password.');
       isValid = false;
     } else {
       setPasswordError(false);
       setPasswordErrorMessage('');
     }
     return isValid;
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    const data = new FormData(event.currentTarget);
+    const empId = (data.get('emp_id') ?? '').toString().trim();
+    const password = (data.get('password') ?? '').toString();
+
+    if (!validateInputs(empId, password)) return;
+
+    // A failed attempt is shown in the alert above the form (see loginError)
+    await login({ emp_id: empId, password });
+  };
+
+  // Typing again clears the previous failed-login message
+  const clearLoginError = () => {
+    if (loginError) reset();
   };
 
   return (
@@ -144,10 +138,16 @@ export default function SignIn(props) {
           >
             Sign in
           </Typography>
+          {loginError && (
+            <Alert severity="error" onClose={reset}>
+              {loginErrorMessage(loginError)}
+            </Alert>
+          )}
           <Box
             component="form"
             method="POST"
             onSubmit={handleSubmit}
+            onChange={clearLoginError}
             noValidate
             sx={{
               display: 'flex',
@@ -165,7 +165,7 @@ export default function SignIn(props) {
                 type="text"
                 name="emp_id"
                 placeholder="Employee ID"
-                autoComplete="emp_id"
+                autoComplete="username"
                 autoFocus
                 required
                 fullWidth
@@ -183,36 +183,20 @@ export default function SignIn(props) {
                 type="password"
                 id="password"
                 autoComplete="current-password"
-                autoFocus
                 required
                 fullWidth
                 variant="outlined"
                 color={passwordError ? 'error' : 'primary'}
               />
             </FormControl>
-            <FormControlLabel
-              control={<Checkbox value="remember" color="primary" />}
-              label="Remember me"
-            />
-            <ForgotPassword open={open} handleClose={handleClose} />
             <Button
               type="submit"
               fullWidth
               variant="contained"
               loading={signingIn}
-              onClick={validateInputs}
             >
               Sign in
             </Button>
-            <Link
-              component="button"
-              type="button"
-              onClick={handleClickOpen}
-              variant="body2"
-              sx={{ alignSelf: 'center' }}
-            >
-              Forgot your password?
-            </Link>
           </Box>
         </Card>
       </SignInContainer>

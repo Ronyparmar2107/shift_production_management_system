@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { styled } from '@mui/material/styles';
-import Divider, { dividerClasses } from '@mui/material/Divider';
 import Menu from '@mui/material/Menu';
 import MuiMenuItem from '@mui/material/MenuItem';
 import { paperClasses } from '@mui/material/Paper';
@@ -27,8 +26,11 @@ export default function OptionsMenu() {
     setAnchorEl(event.currentTarget);
   };
   const handleClose = () => {
-    dispatch(logout());
     setAnchorEl(null);
+  };
+  const handleLogout = () => {
+    setAnchorEl(null);
+    dispatch(logout());
   };
   return (
     <React.Fragment>
@@ -54,19 +56,10 @@ export default function OptionsMenu() {
           [`& .${paperClasses.root}`]: {
             padding: 0,
           },
-          [`& .${dividerClasses.root}`]: {
-            margin: '4px -4px',
-          },
         }}
       >
-        <MenuItem onClick={handleClose}>Profile</MenuItem>
-        <MenuItem onClick={handleClose}>My account</MenuItem>
-        <Divider />
-        <MenuItem onClick={handleClose}>Add another account</MenuItem>
-        <MenuItem onClick={handleClose}>Settings</MenuItem>
-        <Divider />
         <MenuItem
-          onClick={handleClose}
+          onClick={handleLogout}
           sx={{
             [`& .${listItemIconClasses.root}`]: {
               ml: 'auto',

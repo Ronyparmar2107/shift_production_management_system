@@ -8,7 +8,7 @@ import Typography from '@mui/material/Typography';
 import MenuContent from './MenuContent';
 import OptionsMenu from './OptionsMenu';
 
-import { useSelector } from "react-redux";
+import { useCurrentUser } from '../features/auth/useCurrentUser';
 
 const drawerWidth = 240;
 
@@ -25,9 +25,7 @@ const Drawer = styled(MuiDrawer)({
 
 export default function SideMenu() {
 
-  const authData = useSelector((state) => state.auth);
-  const name = authData.name || (JSON.parse(localStorage.getItem('sessionData'))?.name ?? 'User');
-  const email = `${authData.userId}@email.com`
+  const { name, roleLabel, initials } = useCurrentUser();
 
   return (
     <Drawer
@@ -63,18 +61,13 @@ export default function SideMenu() {
           borderColor: 'divider',
         }}
       >
-        <Avatar
-          sizes="small"
-          alt="Riley Carter"
-          src="/static/images/avatar/7.jpg"
-          sx={{ width: 36, height: 36 }}
-        />
+        <Avatar sx={{ width: 36, height: 36, fontSize: '0.9rem' }}>{initials}</Avatar>
         <Box sx={{ mr: 'auto' }}>
           <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: '16px' }}>
             {name}
           </Typography>
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            {email}
+            {roleLabel}
           </Typography>
         </Box>
         <OptionsMenu />
