@@ -4,78 +4,137 @@
 
 **A full-stack showcase project built to demonstrate production-grade patterns in React, ASP.NET Core, and MSSQL** — modeled on a real industry problem: tracking shift production against plan in real time for underground and open-pit mining operations.
 
+[**🌐 Live Demo**](https://shift-production-management-system.vercel.app) · [Architecture](#%EF%B8%8F-architecture) · [Variance Engine](#-the-variance-engine) · [API](#-api-reference) · [Run Locally](#-running-locally)
+
+![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![MUI](https://img.shields.io/badge/Material%20UI-9-007FFF?logo=mui&logoColor=white)
+![Redux](https://img.shields.io/badge/Redux%20Toolkit-RTK%20Query-764ABC?logo=redux&logoColor=white)
+![SQL Server](https://img.shields.io/badge/Azure%20SQL-EF%20Core%208-CC2927?logo=microsoftsqlserver&logoColor=white)
+![JWT](https://img.shields.io/badge/Auth-JWT%20%2B%20BCrypt-000000?logo=jsonwebtokens&logoColor=white)
+![CI](https://github.com/Ronyparmar2107/shift_production_management_system/actions/workflows/ci.yml/badge.svg)
+
 </div>
+
+---
 
 Rather than a generic CRUD demo, this project focuses on the kind of decisions a real ops team actually needs:
 
-- 🔐 **Role-based access with multi-role support**
-- 🕓 **Historical (never-overwritten) crew and role assignment tracking**
-- 📊 **Live plan-vs-actual variance calculation**
-- 🧱 **A JWT-secured API with a properly layered service/DTO architecture**
-
-<div align="center">
+- 🔐 **Role-based access** — four mining roles, enforced by server-side authorization policies *and* role-aware UI
+- ⏱️ **A real shift lifecycle** — plans are created, the shift is started, plans are accepted, actuals are logged, the shift is ended; each step is gated by state
+- 📊 **Live plan-vs-actual variance** — expected-vs-actual pacing, Green / Yellow / Red / Stale status and projected end-of-shift, computed in SQL with thresholds stored in a config table
+- 🧾 **Accountability on every record** — who created, accepted, updated or logged anything, and when; soft deletes only
+- 🧱 **A JWT-secured API with a properly layered service/DTO architecture**, CI on every push, and a live cloud deployment
 
 **Stack:** React (Vite) · ASP.NET Core Web API · Entity Framework Core · MSSQL · JWT authentication
-
-**Mine Planner plans → Shift Supervisor starts the shift and accepts (or adjusts) plans → Crew Lead logs actuals → Plan vs. Actual**
-
-![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
-![C#](https://img.shields.io/badge/C%23-ASP.NET%20Core%20Web%20API-239120?logo=csharp&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
-![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
-![SQL Server](https://img.shields.io/badge/SQL%20Server-EF%20Core%208-CC2927?logo=microsoftsqlserver&logoColor=white)
-![JWT](https://img.shields.io/badge/Auth-JWT%20%2B%20BCrypt-000000?logo=jsonwebtokens&logoColor=white)
-![Status](https://img.shields.io/badge/status-in%20active%20development-orange)
-
-</div>
 
 ---
 
 ## 💡 Why this exists
 
-In underground and open-pit mining, every shift runs on a plan: which crew works which heading, how many metres get drilled, how many tonnes get mucked, when blasting happens. In a lot of operations that plan still lives on a whiteboard in the lineup room, changes happen over the radio, and the real numbers only surface at shift change — too late to recover a bad shift.
+In underground and open-pit mining, every shift runs on a plan: which crew works which heading, how many metres get drilled, how many tonnes get mucked. In many operations that plan still lives on a whiteboard in the lineup room, changes happen over the radio, and the real numbers only surface at shift change — too late to recover a bad shift.
 
-SPMS is built around the idea of **short-interval control**: make the plan explicit, make every change accountable, and capture actuals against the plan so supervisors can see variance *during* the shift rather than after it.
+SPMS is built around **short-interval control**: make the plan explicit, make every change accountable, and capture actuals during the shift so a supervisor sees a crew falling behind *while there's still time to act*.
 
 | Typical shift today | With SPMS |
 |---|---|
-| Lineup plan written on a whiteboard or paper sheet | Plans created per **shift, area (level / heading / stope), crew and activity type** with a numeric target and unit (metres, tonnes, holes, buckets…) |
-| Crew leads change the plan underground with no record of *why* | Leads **accept** the plan or **update-and-accept** — every change is stamped with who and when |
-| Actuals reconstructed from memory at shift change | **Actual logs** captured against each plan for plan-vs-actual variance |
-| Paper time sheets for who was on shift | **Shift logs** per employee, tied to the shift |
-| Shared logins, no accountability | Per-employee login, **BCrypt-hashed** credentials, **JWT** role claims, full audit trail on every record |
+| Lineup plan on a whiteboard or paper sheet | Plans per **shift, area, crew and activity type**, with a numeric target and unit (m, t, holes…) and a planned time window |
+| Plans changed underground with no record of why | Supervisor **accepts** or **updates-and-accepts** each plan; status moves `Pending → Accepted / Updated`, stamped with who and when |
+| Actuals reconstructed from memory at shift change | Crew leads log **cumulative readings** during the shift; falling behind without a reason is not allowed |
+| "How did last shift go?" answered by word of mouth | Supervisor dashboard shows the **current shift plus the two before it** for handover |
+| Shared logins, no accountability | Per-employee login, BCrypt-hashed passwords, JWT role claims, audit columns on every table |
 
 ---
 
-## ✨ Features
+## 👷 Roles & Shift Lifecycle
 
-### ✅ Implemented (API)
+| Role | What they do |
+|---|---|
+| **Admin** | Manages employees, crews, areas and plan (activity) types; can do everything a planner or supervisor can |
+| **Mine Planner** | Creates plans for upcoming shifts and tracks their status |
+| **Shift Supervisor** | Starts the shift, accepts or adjusts each plan, watches live variance, ends the shift |
+| **Crew Lead** | Sees only their crew's accepted plans for the running shift and logs actuals |
 
-- **Employee-number login** — employees sign in with their 3-digit employee number and password; server returns a JWT (8-hour lifetime, matched to a shift length) carrying ID, name and role claims.
-- **Employee onboarding** — creating an employee auto-generates a zero-padded employee number (`001`, `002`, …) and a BCrypt-hashed starter password.
-- **Shift auto-provisioning** — shifts are resolved by *date + shift type*; if one doesn't exist yet, it's created on the fly when a plan is made.
-- **Shift planning** — supervisors create plans linking a shift, crew (via crew lead), area and plan type with planned start/end times.
-- **Crew-lead plan inbox** — a logged-in crew lead fetches the plan assigned to their crew.
-- **Accept / Update-and-Accept workflow** — leads can accept a plan as-is or adjust time, area, type and target before accepting; both paths record `AcceptedBy` / `AcceptedAt` and update audit fields.
-- **Shift logging** — employees log shift events (e.g. clock-in / clock-out) against a shift.
-- **Current-user context** — a `CurrentUserService` reads the employee ID from the JWT so every write is attributed automatically (`CreatedBy`, `UpdatedBy`, `AcceptedBy`).
-- **Soft deletes + audit trail on every table** via a shared `BaseEntity`.
-- **Swagger / OpenAPI** UI in development.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant MP as Mine Planner
+    participant SS as Shift Supervisor
+    participant API as SPMS API
+    participant CL as Crew Lead
 
-### 🚧 In progress / planned
+    MP->>API: Create plan (shift, area, crew, activity, target, window)
+    Note over API: Status = Pending
+    SS->>API: Start shift
+    Note over API: Shift = Running
+    alt Plan is fine
+        SS->>API: Accept plan
+    else Needs a change
+        SS->>API: Update & accept (target / window / area / activity)
+    end
+    loop During the shift
+        CL->>API: Log cumulative actual
+        API-->>CL: Green / Yellow / Red (reason required if behind)
+        SS->>API: Live dashboard
+    end
+    SS->>API: End shift
+    Note over API: Shift = Ended — no new plans or actuals
+```
 
-- [ ] React UI: login, supervisor planning board, crew-lead plan inbox, actuals entry
-- [ ] Actual-output logging endpoint (`ActualLog` model is ready)
-- [ ] Plan-vs-actual dashboard (per shift, area, crew) with live variance
-- [ ] Shift handover notes between outgoing and incoming supervisors
-- [ ] Equipment assignment per plan (drills, LHDs, trucks) and delay/downtime codes
-- [ ] Multi-role support — employee ↔ role mapping table so one person can hold several roles
-- [ ] Role assignment history — effective-dated records instead of overwriting `role_id`
-- [ ] Crew management (create crews, assign employees with effective start/end dates — schema already in place via `crew_assignment`)
-- [ ] Role-based authorization policies (`[Authorize(Roles = ...)]`) on supervisor-only actions
-- [ ] Employee update / deactivate (`UpdateEmployeeDto` is ready)
-- [ ] EF Core migrations + seed data (roles, areas, plan types)
-- [ ] Unit/integration tests
+**Rules the API enforces**
+
+- Shifts are `Morning`, `Afternoon` or `Night` per date, and are created automatically the first time a plan targets them.
+- One plan per **crew + area + activity** per shift — duplicates are rejected.
+- No new plans once a shift has **ended**. A supervisor creating a plan during a **running** shift has it accepted automatically.
+- Plans can only be accepted while the shift is **running**, and only once.
+- Actuals can only be logged by the **lead of the assigned crew**, on an **accepted** plan, while the shift is **running**, and not before the plan's start time.
+- Readings are **cumulative**. A reading lower than the previous one needs a comment; a reading that leaves the crew in **Yellow or Red** is rolled back until a reason is given.
+
+---
+
+## 📊 The Variance Engine
+
+Variance is calculated in the SQL view `v_plan_variance` ([`database/001_plan_status_and_variance_view.sql`](database/001_plan_status_and_variance_view.sql)), so the API, dashboard and any future reporting tool read the same numbers.
+
+**Expected progress** assumes a linear pace across the plan window:
+
+```
+expected = target × (time elapsed ÷ plan length)      // capped at target after the window ends
+variance = actual − expected
+variance % = variance ÷ expected × 100
+projected end = actual ÷ time elapsed × plan length   // shown once the plan has run long enough
+```
+
+**Status**
+
+| Status | Rule (default thresholds) |
+|---|---|
+| 🟢 **Green** | On pace, or behind by **5 % or less** |
+| 🟡 **Yellow** | Behind by more than 5 %, up to 15 % |
+| 🔴 **Red** | Behind by more than **15 %** |
+| ⚪ **Stale** | No reading for **60 minutes** while the plan window is still open |
+| — | `Awaiting acceptance` / `Not started` before the plan is live |
+
+Every threshold — Yellow %, Red %, stale minutes, warm-up periods before % and projections are shown, and a time-zone offset — lives in the **`variance_config` table**, never in code. Ops can tune them without a deployment.
+
+---
+
+## 🖥️ Screens
+
+Each role signs in to a home page built for them, and the side menu only shows what that role may use.
+
+| Screen | Who | What it shows |
+|---|---|---|
+| **Supervisor dashboard** | Supervisor, Admin | Current shift's plans with live variance, summary counts (Green / Yellow / Red / Stale / Pending), and the previous two shifts for handover |
+| **Planner home** | Mine Planner | Plans created and their acceptance status |
+| **Crew lead home / Actuals** | Crew Lead | Accepted plans for the running shift, with an entry form for readings |
+| **Create Plan** | Planner, Supervisor, Admin | Assign a target and time window to a crew, area and activity |
+| **My Plans** | Planner, Supervisor, Admin | Plans you created, with status and who accepted them |
+| **Shift** | Supervisor, Admin | Start / end the shift; accept or update-and-accept each plan |
+| **Admin Panel** | Admin | Employees, crews, areas and plan types |
+
+<!-- 📸 Add screenshots here, e.g. ![Supervisor dashboard](docs/screenshots/supervisor-dashboard.png) -->
 
 ---
 
@@ -83,13 +142,12 @@ SPMS is built around the idea of **short-interval control**: make the plan expli
 
 | Layer | Technology |
 |---|---|
-| Backend | ASP.NET Core 8 Web API, C# |
-| Data access | Entity Framework Core 8 (SQL Server provider) |
-| Database | Microsoft SQL Server / SQL Express |
-| Auth | JWT Bearer (`Microsoft.AspNetCore.Authentication.JwtBearer`), BCrypt.Net-Next password hashing |
-| API docs | Swashbuckle (Swagger UI) |
-| Frontend | React 19 + Vite 8 (SPA served through ASP.NET Core SPA Proxy) |
-| Tooling | Visual Studio 2022 solution (`.sln` + `.esproj`), ESLint |
+| **Frontend** | React 19, Vite 8, Material UI 9 (data grid, charts, date pickers), Redux Toolkit + RTK Query, React Router 7, Day.js |
+| **Backend** | ASP.NET Core 8 Web API, C#, policy-based authorization |
+| **Data** | Entity Framework Core 8, SQL Server / Azure SQL, SQL view for variance |
+| **Auth** | JWT bearer tokens (8-hour lifetime — one shift), BCrypt password hashing |
+| **DevOps** | GitHub Actions CI, Docker, Vercel (frontend), Render (API), Azure SQL (database) |
+| **Tooling** | Visual Studio 2022 solution, Swagger / OpenAPI, ESLint, .NET user secrets |
 
 ---
 
@@ -97,186 +155,164 @@ SPMS is built around the idea of **short-interval control**: make the plan expli
 
 ```mermaid
 flowchart LR
-    UI["React 19 + Vite<br/>spms.client"] -->|HTTPS + JWT| API
-    subgraph API["ASP.NET Core 8 Web API — SPMS.Server"]
-        C[Controllers] --> S[Services]
-        S --> CU[CurrentUserService<br/>reads JWT claims]
-        S --> DB[(AppDbContext<br/>EF Core)]
+    subgraph Client["React SPA — Vercel"]
+        UI[Role-based pages] --> RTK[RTK Query<br/>one API slice per feature]
+        RTK --> BQ[Shared auth base query<br/>adds JWT · logs out on 401]
     end
-    DB --> SQL[(SQL Server<br/>SPMSDB)]
+
+    BQ -->|HTTPS + Bearer JWT| API
+
+    subgraph API["ASP.NET Core 8 API — Render (Docker)"]
+        C[Controllers<br/>policy-protected] --> S[Services<br/>business rules]
+        S --> CU[CurrentUserService<br/>who is calling]
+        S --> EF[(AppDbContext<br/>EF Core)]
+    end
+
+    EF --> DB[(Azure SQL<br/>tables + v_plan_variance)]
 ```
 
-The backend follows a clean **Controller → Service (interface) → DbContext** layering with DTOs at the boundary, so controllers stay thin and business rules live in testable services.
-
-### Plan lifecycle
-
-```mermaid
-sequenceDiagram
-    participant Sup as Shift Supervisor
-    participant API as SPMS API
-    participant Lead as Crew Lead
-    participant Crew as Crew
-
-    Sup->>API: POST plan (date, shift, area, type, crew lead, times)
-    API->>API: Get-or-create shift
-    Lead->>API: GET my plan
-    alt Plan works as-is
-        Lead->>API: Accept plan
-    else Needs changes
-        Lead->>API: Update & accept (time / area / type / target)
-    end
-    Crew->>API: Log shift (on shift / off shift)
-    Crew->>API: Log actuals — metres, tonnes (planned)
-```
+- **Thin controllers, rules in services.** Controllers map HTTP to service calls; services own validation and return `(result, error)` so every failure comes back as a clear message.
+- **Authorization in one place.** Role names and policies (`PlanCreate`, `ShiftManage`, `ActualsLog`) are defined once in `AccessRules.cs`; role matching ignores case and spacing.
+- **Fail fast on bad config.** The API refuses to start if the JWT key is missing or shorter than 32 characters, the connection string is a placeholder, or CORS origins aren't set.
+- **Atomic actuals.** Logging an actual saves, checks the resulting variance and rolls back inside an EF execution-strategy transaction if a reason is required.
 
 ---
 
 ## 🗄️ Data Model
 
-Every table inherits audit + soft-delete columns from `BaseEntity`:
-`id, created_at, created_by, updated_at, updated_by, is_updated, is_deleted, deleted_at, deleted_by`
+Every table inherits audit and soft-delete columns from `BaseEntity`:
+`created_at/by · updated_at/by · is_updated · is_deleted · deleted_at/by`
 
 ```mermaid
 erDiagram
-    ROLE_MASTER ||--o{ EMP_MASTER : "role_id"
-    EMP_MASTER ||--o| LOGIN_CREDS : "emp_id"
-    EMP_MASTER ||--o{ CREW_MASTER : "lead_emp_id"
-    CREW_MASTER ||--o{ CREW_ASSIGNMENT : "crew_id"
-    EMP_MASTER ||--o{ CREW_ASSIGNMENT : "emp_id"
-    SHIFT_MASTER ||--o{ PLAN_MASTER : "shift_id"
-    CREW_MASTER ||--o{ PLAN_MASTER : "crew_id"
-    AREA_MASTER ||--o{ PLAN_MASTER : "area_id"
-    PLAN_TYPE_MASTER ||--o{ PLAN_MASTER : "type_id"
-    PLAN_MASTER ||--o{ ACTUAL_LOGS : "plan_id"
-    SHIFT_MASTER ||--o{ SHIFT_LOGS : "shift_id"
-    EMP_MASTER ||--o{ SHIFT_LOGS : "emp_id"
+    ROLE_MASTER ||--o{ EMP_MASTER : "role"
+    EMP_MASTER ||--o| LOGIN_CREDS : "login"
+    EMP_MASTER ||--o{ CREW_MASTER : "leads"
+    SHIFT_MASTER ||--o{ PLAN_MASTER : "has"
+    CREW_MASTER ||--o{ PLAN_MASTER : "assigned"
+    AREA_MASTER ||--o{ PLAN_MASTER : "where"
+    PLAN_TYPE_MASTER ||--o{ PLAN_MASTER : "activity"
+    PLAN_MASTER ||--o{ ACTUAL_LOGS : "readings"
+    SHIFT_MASTER ||--o{ SHIFT_LOGS : "start / end"
 
-    EMP_MASTER { string name string employee_number long role_id date resignation_at bool is_active }
-    LOGIN_CREDS { long emp_id string password_bcrypt bool is_active }
-    ROLE_MASTER { string role bool is_active }
-    CREW_MASTER { long lead_emp_id }
-    CREW_ASSIGNMENT { long crew_id long emp_id date start_date date end_date }
-    AREA_MASTER { string area_name }
-    PLAN_TYPE_MASTER { string type string unit }
+    PLAN_MASTER { long target datetime planned_start datetime planned_end string status bool is_accepted long accepted_by datetime accepted_at }
+    ACTUAL_LOGS { long plan_id string value string comment datetime created_at }
     SHIFT_MASTER { date date string type datetime start_time datetime end_time }
-    PLAN_MASTER { long target datetime planned_start datetime planned_end string comment bool is_accepted long accepted_by datetime accepted_at }
-    ACTUAL_LOGS { long plan_id string value string comment }
-    SHIFT_LOGS { long shift_id long emp_id string log_type string comment }
+    SHIFT_LOGS { long shift_id long emp_id string log_type }
+    PLAN_TYPE_MASTER { string type string unit }
+    VARIANCE_CONFIG { string config_key decimal config_value }
 ```
+
+Shift state (`NotStarted / Running / Ended`) is derived from the latest `ShiftStart` / `ShiftEnd` entry in `shift_logs`, so the full history of every shift is kept.
 
 ---
 
 ## 🔌 API Reference
 
-All endpoints except login require `Authorization: Bearer <token>`.
+All routes follow `api/[controller]/[action]`. Every endpoint except login requires `Authorization: Bearer <token>`. Full schemas are in Swagger at `/swagger` (development).
 
-| Method | Endpoint | Purpose | Body |
-|---|---|---|---|
-| `POST` | `/api/Login` | Authenticate, receive JWT | `{ "employeeNumber": "001", "password": "..." }` |
-| `POST` | `/api/Employee` | Create employee + login credentials | `{ "name": "Jane Doe", "roleId": 2 }` |
-| `POST` | `/api/Plan/CreatePlan` | Create a plan (MinePlanner, ShiftSupervisor, Admin). A supervisor's plan in a running shift is auto-accepted | `PlanDto` |
-| `GET` | `/api/Plan/GetMyPlans` | Plans the signed-in user created, with status | — |
-| `POST` | `/api/Plan/AcceptPlan` | Accept a plan (ShiftSupervisor, Admin; shift must be running) | `PlanDto` (id) |
-| `POST` | `/api/Plan/UpdateAndAccept` | Adjust then accept a plan (same rules) | `PlanDto` |
-| `GET` | `/api/Shift/Overview?date=&shiftType=` | Shift state (NotStarted / Running / Ended) plus its plans | — |
-| `POST` | `/api/Shift/Start` | Start a shift (Morning / Afternoon / Night) | `{ "date": "2026-10-12", "shiftType": "Morning" }` |
-| `POST` | `/api/Shift/End` | End a running shift, locking actuals | `{ "id": 1 }` |
-| `GET` | `/api/Actuals/GetMyPlans` | Crew lead's accepted plans in running shifts, with live variance | — |
-| `POST` | `/api/Actuals/Log` | Log a cumulative actual (CrewLead). Asks for a reason when behind plan | `{ "planId": 1, "value": 120, "readingTime": "2026-10-12T09:30:00", "comment": null }` |
+| Area | Endpoints | Access |
+|---|---|---|
+| **Auth** | `POST /api/Auth/Login` | Public |
+| **Plan** | `POST CreatePlan` · `GET GetMyPlans` | Planner, Supervisor, Admin |
+| | `POST AcceptPlan` · `POST UpdateAndAccept` | Supervisor, Admin |
+| **Shift** | `GET Overview` · `GET Dashboard` · `POST Start` · `POST End` | Supervisor, Admin |
+| **Actuals** | `GET GetMyPlans` · `POST Log` | Crew Lead |
+| **Employee** | `GET GetAllEmployees` · `POST CreateEmployee` · `POST UpdateEmployee` | Signed in |
+| **Crew** | `GET GetAllCrews` · `GET GetCrewLeads` · `POST CreateCrew / UpdateCrew / DeleteCrew` | Signed in |
+| **Area** | `GET GetAllArea` · `POST CreateArea / UpdateArea` | Signed in |
+| **Plan type** | `GET GetAllPlanTypes` · `POST CreatePlanType / UpdatePlanType / DeletePlanType` | Signed in |
+| **Role** | `GET GetAllRoles` | Signed in |
 
 <details>
-<summary><b>Example — login response</b></summary>
+<summary><b>Example — log an actual</b></summary>
 
-```json
-{
-  "employeeId": 4,
-  "name": "004",
-  "role": "CrewLead",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
+```http
+POST /api/Actuals/Log
+Authorization: Bearer eyJhbGciOi...
+
+{ "planId": 42, "value": 31.5, "readingTime": "2026-10-12T10:30:00Z", "comment": null }
 ```
-</details>
-
-<details>
-<summary><b>Example — PlanDto</b></summary>
 
 ```json
 {
-  "date": "2026-09-25",
-  "shiftType": "Day",
-  "crewLeadId": 4,
-  "area": "4200L - Heading 12",
-  "planType": "Development Drilling",
-  "target": 45,
-  "startTime": "2026-09-25T07:00:00",
-  "endTime": "2026-09-25T19:00:00",
-  "comment": "Bolting crew clears heading by 09:00"
+  "saved": false,
+  "reasonRequired": true,
+  "message": "You are behind plan: Red (-22%). Add the reason, then save again.",
+  "status": "Red"
 }
 ```
 </details>
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Running Locally
 
 ### Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [Node.js 20+](https://nodejs.org/) and npm
-- SQL Server or SQL Server Express
-- Visual Studio 2022 (recommended) or VS Code
+[.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) · [Node.js 22](https://nodejs.org/) · SQL Server or SQL Server Express · Visual Studio 2022 (optional)
 
-### 1. Clone
+### 1. Database
 
-```bash
-git clone [https://github.com/Ronyparmar2107/shift_production_management_system.git]
-cd SPMS
+Create a database named `SPMSDB`, then run the scripts in [`database/`](database/) in order. Seed the lookup tables:
+
+```sql
+INSERT INTO role_master (role, is_active, is_deleted) VALUES
+  ('Admin',1,0), ('MinePlanner',1,0), ('ShiftSupervisor',1,0), ('CrewLead',1,0);
+INSERT INTO area_master (area_name, is_deleted) VALUES
+  ('4200L - Heading 12',0), ('4400L - Stope 7',0), ('Surface - ROM Pad',0);
+INSERT INTO plan_type_master (type, unit, is_deleted) VALUES
+  ('Development Drilling','m',0), ('Mucking','t',0), ('Ground Support - Bolting','bolts',0);
 ```
 
-### 2. Configure the database and JWT
+### 2. API secrets
 
-Edit `SPMS.Server/appsettings.Development.json` (or use user-secrets — recommended):
+Secrets never live in `appsettings.json`. Set them once with user secrets:
 
 ```bash
 cd SPMS.Server
-dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost\\SQLEXPRESS;Database=SPMSDB;Trusted_Connection=True;TrustServerCertificate=True;"
-dotnet user-secrets set "Jwt:Key" "<a-long-random-secret-at-least-32-chars>"
-dotnet user-secrets set "Jwt:Issuer" "ShiftProductionManagementSystem"
-dotnet user-secrets set "Jwt:Audience" "ShiftProductionManagementSystem"
+dotnet user-secrets set "Jwt:Key" "<random string, at least 32 characters>"
 ```
 
-### 3. Create the database
+### 3. Client environment
 
-The schema is database-first (snake_case tables mapped in `AppDbContext`). Create `SPMSDB` and its tables, then seed the lookup tables:
+Create `spms.client/.env.development`:
 
-```sql
-INSERT INTO role_master (role, is_active, is_deleted) VALUES ('Admin',1,0), ('MinePlanner',1,0), ('ShiftSupervisor',1,0), ('CrewLead',1,0);
-INSERT INTO area_master (area_name, is_deleted) VALUES ('4200L - Heading 12',0), ('4400L - Stope 7',0), ('Surface - ROM Pad',0);
-INSERT INTO plan_type_master (type, unit, is_deleted) VALUES ('Development Drilling','m',0), ('Mucking','t',0), ('Ground Support - Bolting','bolts',0), ('Haulage','t',0);
+```
+VITE_API_URL=https://localhost:7201
 ```
 
 ### 4. Run
 
-**Visual Studio:** open `SPMS.sln`, set multiple startup projects (`SPMS.Server` + `spms.client`) and press **F5**.
-
-**CLI:**
-
 ```bash
-# terminal 1 — API (Swagger at https://localhost:7201/swagger)
-cd SPMS.Server
-dotnet run --launch-profile https
+# API — Swagger at https://localhost:7201/swagger
+cd SPMS.Server && dotnet run --launch-profile https
 
-# terminal 2 — React client (https://localhost:52589)
-cd spms.client
-npm install
-npm run dev
+# Client — http://localhost:5173
+cd spms.client && npm install && npm run dev
 ```
 
-### 5. First login
+Or open `SPMS.sln` in Visual Studio and start both projects.
 
-- New employees get a default password of **`<FirstName><EmployeeNumber>`** — e.g. `Jane` + `007` → `Jane007`.
-- A development-only bootstrap admin login (employee number `000`) exists so the first real users can be created. **Remove it before any deployment.**
+### 5. First sign-in
+
+Sign in with employee number **`000`** — a bootstrap admin used only to create the first real users. In development no password is needed; in any other environment it only works when `Auth:BootstrapAdminPassword` is set. New employees get a starter password of **`<FirstName><EmployeeNumber>`** (e.g. `Jane007`).
+
+---
+
+## ☁️ Deployment
+
+| Piece | Where | How |
+|---|---|---|
+| **Frontend** | Vercel | Builds `spms.client`; `VITE_API_URL` points at the API |
+| **API** | Render | Multi-stage `Dockerfile` (SDK build → ASP.NET runtime on port 10000) |
+| **Database** | Azure SQL | Same scripts as local |
+| **CI** | GitHub Actions | Every push to `main` runs `npm ci && npm run build` for the client and `dotnet build` for the API |
+
+Production config comes from environment variables: `ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Cors__AllowedOrigins__0`, `ASPNETCORE_ENVIRONMENT=Production`.
+
+> ℹ️ The API runs on Render's free tier, so the first request after a quiet period can take up to a minute while it wakes up.
 
 ---
 
@@ -284,52 +320,57 @@ npm run dev
 
 ```
 SPMS/
-├── SPMS.sln
-├── SPMS.Server/                 # ASP.NET Core 8 Web API
-│   ├── Controllers/             # Login, Employee, Plan, Shift
-│   ├── Services/                # Business logic behind interfaces
-│   │   ├── LoginService.cs      # BCrypt verify + JWT issue
-│   │   ├── EmployeeService.cs   # Onboarding + credential generation
-│   │   ├── PlanService.cs       # Create / fetch / accept / update plans
-│   │   ├── ShiftService.cs      # Get-or-create shift, shift logs
-│   │   └── CurrentUserService.cs# Employee ID from JWT claims
-│   ├── Models/                  # EF entities (all inherit BaseEntity)
-│   ├── DTOs/                    # Request/response contracts
-│   ├── Data/AppDbContext.cs     # Table + column mappings
-│   └── Program.cs               # DI, JWT auth, Swagger, SPA fallback
-└── spms.client/                 # React 19 + Vite frontend
+├── .github/workflows/ci.yml      # Client + API build on every push
+├── Dockerfile                    # API container for Render
+├── database/                     # Versioned SQL scripts (status, variance view, config)
+├── SPMS.Server/                  # ASP.NET Core 8 Web API
+│   ├── Controllers/              # Auth, Plan, Shift, Actuals, Employee, Crew, Area, PlanType, Role
+│   ├── Services/                 # Business rules + AccessRules.cs (roles, policies, shift rules)
+│   ├── Models/                   # EF entities (BaseEntity audit columns) + PlanView
+│   ├── DTOs/                     # Request / response contracts
+│   └── Data/AppDbContext.cs      # Table, column and view mappings
+└── spms.client/                  # React 19 + Vite
     └── src/
+        ├── app/                  # Redux store, auth base query, config, shift helpers
+        ├── features/             # RTK Query API slice per feature + auth slice
+        ├── dashboard/            # Role-based home pages and supervisor dashboard
+        ├── plan/                 # Create Plan, My Plans, Shift management
+        ├── actuals/              # Crew lead actuals entry
+        ├── admin-panel/          # Employees, crews, areas, plan types
+        └── theme/                # Material UI theme and component styling
 ```
 
 ---
 
-## 🔐 Security Notes
+## 🔐 Security
 
-- Passwords are never stored in plain text — **BCrypt** with per-hash salt.
-- JWTs validate issuer, audience, signing key and lifetime.
-- Every write records **who** did it via claims, not client-supplied IDs.
-- Soft deletes preserve history for audits.
-- Keep `Jwt:Key` and connection strings **out of source control** (user-secrets / environment variables).
+- Passwords hashed with **BCrypt**; never stored or returned in plain text.
+- JWTs validated for issuer, audience, signature and lifetime; expire after one shift (8 h).
+- **Policy-based authorization** on plan, shift and actuals endpoints; the client logs the user out on any `401`.
+- Every write is attributed from the token's claims — never from IDs sent by the client.
+- Secrets live in user secrets (dev) and environment variables (prod); the API won't start without them.
+- CORS restricted to configured origins per environment.
 
 ---
 
-## 🧭 What this project demonstrates
+## 🧭 Roadmap
 
-- Domain modelling for **mining operations** — shifts, crews, areas, activity types and plan-vs-actual
-- Turning an ambiguous, verbal, radio-and-whiteboard process into **explicit data and workflow rules**
-- **Layered .NET architecture** — controllers, service interfaces, DTOs, DI
-- **Stateless auth** end-to-end with JWT + BCrypt
-- **Auditability by design** — every entity tracks create/update/delete actors and timestamps
-- Full-stack delivery with **React + ASP.NET Core** in a single Visual Studio solution
+- [ ] Restrict admin endpoints (employees, crews, areas, plan types) to the Admin role on the server
+- [ ] Multi-role support — an employee ↔ role mapping so one person can hold several roles
+- [ ] Effective-dated role and crew assignment history (schema groundwork in `crew_assignment`)
+- [ ] Delay / downtime codes and equipment assignment per plan
+- [ ] Shift handover notes between outgoing and incoming supervisors
+- [ ] Automated tests for services and the variance view
+- [ ] EF Core migrations to replace hand-run SQL scripts
 
 ---
 
 ## 👤 Author
 
 **Rony Parmar** — Full Stack Developer · Sudbury, Ontario
-MSc Computational Science (Laurentian University) · React · Node.js · .NET / C# · SQL Server · MongoDB
+React · .NET / C# · SQL Server · Node.js · MongoDB
 
-📧 ronyparmar2107@gmail.com
+[GitHub](https://github.com/Ronyparmar2107) · ronyparmar2107@gmail.com
 
 ---
 
