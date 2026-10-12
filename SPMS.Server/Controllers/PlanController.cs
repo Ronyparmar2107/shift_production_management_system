@@ -17,8 +17,11 @@ namespace SPMS.Server.Controllers
         {
             _planService = planService;
         }
-        
+
+        // POST /api/Plan/CreatePlan   (MinePlanner, ShiftSupervisor, Admin)
+        // A supervisor creating a plan in a running shift gets it auto-accepted.
         [HttpPost]
+        [Authorize(Policy = Policies.PlanCreate)]
         public async Task<IActionResult> CreatePlanAsync([FromBody]PlanDto plan)
         {
             var (response, error) = await _planService.CreatePlanAsync(plan);
@@ -29,41 +32,17 @@ namespace SPMS.Server.Controllers
             return Ok(response);
         }
 
-        // GET /api/Plan/GetPlanTypes  -> [{ planTypeId, type, unit }]
+        // GET /api/Plan/GetMyPlans  -> plans the signed-in user created, with Status (Pending / Accepted / Updated)
         [HttpGet]
-        public async Task<IActionResult> GetPlanTypesAsync()
-        {
-            return Ok(await _planService.GetPlanTypesAsync());
-        }
-
-        // GET /api/Plan/GetMyPlans  -> plans the signed-in user created, with Status (Pending / Accepted / Accepted with changes)
-        [HttpGet]
+        [Authorize(Policy = Policies.PlanCreate)]
         public async Task<IActionResult> GetMyPlansAsync()
         {
             return Ok(await _planService.GetMyCreatedPlansAsync());
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetPlanByEmployeeIdAsync()
-        {
-            var response = await _planService.GetPlanByEmployeeAsync();
-
-            if (response.Id == 0)
-            {
-                return BadRequest(new { message = "Seems like no Plans made for you" });
-            }
-            return Ok(response);
-        }
-
-        // GET /api/Plan/GetCrewPlans  -> plans assigned to the signed-in crew lead's crew (same shape as GetMyPlans)
-        [HttpGet]
-        public async Task<IActionResult> GetCrewPlansAsync()
-        {
-            return Ok(await _planService.GetCrewPlansAsync());
-        }
-
-        // POST /api/Plan/AcceptPlan   body: PlanDto (only Id is used)
+        // POST /api/Plan/AcceptPlan   body: PlanDto (only Id is used)   (ShiftSupervisor, Admin; shift must be running)
         [HttpPost]
+        [Authorize(Policy = Policies.ShiftManage)]
         public async Task<IActionResult> AcceptPlanAsync([FromBody] PlanDto plan)
         {
             var error = await _planService.AcceptPlanAsync(plan);
@@ -76,6 +55,7 @@ namespace SPMS.Server.Controllers
 
         // POST /api/Plan/UpdateAndAccept   body: PlanDto (Id, Area, PlanType, Target, StartTime, EndTime, Comment)
         [HttpPost]
+        [Authorize(Policy = Policies.ShiftManage)]
         public async Task<IActionResult> UpdateAndAcceptAsync([FromBody] PlanDto planDto)
         {
             var error = await _planService.UpdateAndAcceptPlanAsync(planDto);

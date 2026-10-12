@@ -2,17 +2,15 @@ using Microsoft.EntityFrameworkCore;
 using SPMS.Server.Data;
 using SPMS.Server.DTOs;
 using SPMS.Server.Models;
-using System.Runtime.CompilerServices;
+
 namespace SPMS.Server.Services
 {
 
     public interface IPlanService
     {
         Task<(PlanDto? Result, string? Error)> CreatePlanAsync(PlanDto plan);
-        Task<List<PlanTypeDto>> GetPlanTypesAsync();
         Task<List<PlanStatusDto>> GetMyCreatedPlansAsync();
-        Task<List<PlanStatusDto>> GetCrewPlansAsync();
-        Task<PlanDto> GetPlanByEmployeeAsync();
+        Task<List<PlanStatusDto>> GetShiftPlansAsync(long shiftId);
         // Return null on success, otherwise the error message
         Task<string?> AcceptPlanAsync(PlanDto planDto);
         Task<string?> UpdateAndAcceptPlanAsync(PlanDto planDto);
@@ -30,19 +28,6 @@ namespace SPMS.Server.Services
             _dbcontext = appDbContext;
             _shiftService = shiftService;
         }
-        public async Task<List<PlanTypeDto>> GetPlanTypesAsync()
-        {
-            return await _dbcontext.PlanTypeMasters
-                .Where(p => !p.IsDeleted)
-                .OrderBy(p => p.Id)
-                .Select(p => new PlanTypeDto
-                {
-                    PlanTypeId = p.Id,
-                    Type = p.Type ?? "",
-                    Unit = p.Unit ?? ""
-                })
-                .ToListAsync();
-        }
 
         public async Task<(PlanDto? Result, string? Error)> CreatePlanAsync(PlanDto plan)
         {
@@ -50,8 +35,9 @@ namespace SPMS.Server.Services
             if (plan.Date == null)
                 return (null, "Date is required");
 
-            if (string.IsNullOrWhiteSpace(plan.ShiftType))
-                return (null, "Shift is required");
+            var shiftType = ShiftRules.NormalizeType(plan.ShiftType);
+            if (shiftType == null)
+                return (null, "Shift must be Morning, Afternoon or Night");
 
             if (plan.Target == null || plan.Target <= 0)
                 return (null, "Target must be greater than zero");
@@ -74,7 +60,12 @@ namespace SPMS.Server.Services
             if (crew == null)
                 return (null, "Selected crew does not exist");
 
-            var shift = await _shiftService.GetorCreateShiftAsync(new ShiftDto { Date = plan.Date, ShiftType = plan.ShiftType });
+            var shift = await _shiftService.GetorCreateShiftAsync(new ShiftDto { Date = plan.Date, ShiftType = shiftType });
+
+            // Plans can be added before and during a shift, never after it has ended
+            var shiftStatus = await _shiftService.GetShiftStatusAsync(shift.Id);
+            if (shiftStatus == ShiftRules.Ended)
+                return (null, "This shift has ended, no more plans can be added to it");
 
             // Guard against double submits: same crew, area and activity in the same shift
             var duplicate = await _dbcontext.PlanMasters.AnyAsync(p =>
@@ -83,6 +74,10 @@ namespace SPMS.Server.Services
 
             if (duplicate)
                 return (null, "A plan for this crew, area and activity already exists in this shift");
+
+            // A supervisor creating a plan in a running shift is also the person who accepts it
+            var me = _currentUserService.EmployeeId;
+            var autoAccept = shiftStatus == ShiftRules.Running && _currentUserService.IsInRole(RoleNames.ShiftSupervisor);
 
             PlanMaster newPlan = new PlanMaster
             {
@@ -94,7 +89,11 @@ namespace SPMS.Server.Services
                 CrewId = crew.Id,
                 Target = plan.Target,
                 Comment = plan.Comment,
-                CreatedBy = _currentUserService.EmployeeId
+                CreatedBy = me,
+                Status = autoAccept ? "Accepted" : "Pending",
+                IsAccepted = autoAccept,
+                AcceptedBy = autoAccept ? me : null,
+                AcceptedAt = autoAccept ? DateTime.UtcNow : null
             };
 
             await _dbcontext.AddAsync(newPlan);
@@ -119,26 +118,14 @@ namespace SPMS.Server.Services
             return await BuildPlanStatusesAsync(plans);
         }
 
-        // Plans assigned to the crew(s) the signed-in crew lead leads — unaccepted first, then newest
-        public async Task<List<PlanStatusDto>> GetCrewPlansAsync()
+        // All plans of one shift, pending ones first
+        public async Task<List<PlanStatusDto>> GetShiftPlansAsync(long shiftId)
         {
-            var me = _currentUserService.EmployeeId;
-            if (me == null)
-                return new List<PlanStatusDto>();
-
-            var myCrewIds = await _dbcontext.CrewMasters
-                .Where(c => !c.IsDeleted && c.LeadEmpId == me)
-                .Select(c => (long?)c.Id)
-                .ToListAsync();
-
-            if (myCrewIds.Count == 0)
-                return new List<PlanStatusDto>();
-
             var plans = await _dbcontext.PlanMasters
-                .Where(p => !p.IsDeleted && myCrewIds.Contains(p.CrewId))
+                .Where(p => !p.IsDeleted && p.ShiftId == shiftId)
                 .OrderBy(p => p.IsAccepted)
-                .ThenByDescending(p => p.CreatedAt)
-                .ThenByDescending(p => p.Id)
+                .ThenBy(p => p.PlannedStart)
+                .ThenBy(p => p.Id)
                 .ToListAsync();
 
             return await BuildPlanStatusesAsync(plans);
@@ -161,6 +148,8 @@ namespace SPMS.Server.Services
 
             var empIds = crews.Values.Select(c => c.LeadEmpId)
                 .Concat(plans.Select(p => p.AcceptedBy))
+                .Concat(plans.Select(p => p.UpdatedBy))
+                .Concat(plans.Select(p => p.CreatedBy))
                 .Where(id => id != null)
                 .Distinct()
                 .ToList();
@@ -189,77 +178,45 @@ namespace SPMS.Server.Services
                     StartTime = p.PlannedStart,
                     EndTime = p.PlannedEnd,
                     Comment = p.Comment,
-                    Status = !p.IsAccepted ? "Pending" : (p.IsUpdated ? "Accepted with changes" : "Accepted"),
+                    Status = p.Status,
+                    CreatedByName = EmpName(p.CreatedBy),
                     AcceptedByName = p.IsAccepted ? EmpName(p.AcceptedBy) : null,
                     AcceptedAt = p.AcceptedAt,
+                    UpdatedByName = p.IsUpdated ? EmpName(p.UpdatedBy) : null,
+                    UpdatedAt = p.UpdatedAt,
                     CreatedAt = p.CreatedAt
                 };
             }).ToList();
         }
 
-        public async Task<PlanDto> GetPlanByEmployeeAsync()
+        // The plan must exist, not be accepted yet, and its shift must be running
+        // (the shift starts first, then plans are accepted). Who may accept is enforced by the controller policy.
+        private async Task<(PlanMaster? Plan, string? Error)> GetPlanToAcceptAsync(long planId)
         {
-            var crew = await _dbcontext.CrewMasters.FirstOrDefaultAsync(p=> p.LeadEmpId == _currentUserService.EmployeeId);
-            if(crew == null)
-            {
-                return new PlanDto { Id = 0 };
-            }
-
-            var plan = await _dbcontext.PlanMasters.FirstOrDefaultAsync(p => p.CrewId == crew.Id);
-
-            if(plan == null)
-            {
-                return new PlanDto { Id = 0 };
-            }
-
-            var area = await _dbcontext.AreaMasters.FirstOrDefaultAsync(p=>p.Id == plan.AreaId);
-            var type = await _dbcontext.PlanTypeMasters.FirstOrDefaultAsync(p => p.Id == plan.TypeId);
-
-            var shift = await _dbcontext.ShiftMasters.FirstOrDefaultAsync(p=> p.Id == plan.ShiftId);
-
-            PlanDto planDto = new PlanDto
-            {
-                Id = plan.Id,
-                CrewLeadId = crew.LeadEmpId,
-                Area = area.AreaName,
-                PlanType = type.Type,
-                Target = plan.Target,
-                Comment = plan.Comment,
-                ShiftType = shift.Type,
-                Date = shift.Date,
-                StartTime = plan.PlannedStart,
-                EndTime = plan.PlannedEnd
-            };
-
-            return planDto;
-        }
-
-        // The plan must exist, belong to a crew led by the signed-in user, and not be accepted yet
-        private async Task<(PlanMaster? Plan, string? Error)> GetPlanForLeadAsync(long planId)
-        {
-            var me = _currentUserService.EmployeeId;
-
             var plan = await _dbcontext.PlanMasters.FirstOrDefaultAsync(p => p.Id == planId && !p.IsDeleted);
             if (plan == null)
                 return (null, "Plan not found");
 
-            var crew = await _dbcontext.CrewMasters.FirstOrDefaultAsync(c => c.Id == plan.CrewId && !c.IsDeleted);
-            if (me == null || crew == null || crew.LeadEmpId != me)
-                return (null, "This plan is not assigned to your crew");
-
             if (plan.IsAccepted)
                 return (null, "This plan has already been accepted");
+
+            var shiftStatus = await _shiftService.GetShiftStatusAsync(plan.ShiftId ?? 0);
+            if (shiftStatus == ShiftRules.NotStarted)
+                return (null, "Start the shift before accepting plans");
+            if (shiftStatus == ShiftRules.Ended)
+                return (null, "This shift has ended");
 
             return (plan, null);
         }
 
         public async Task<string?> AcceptPlanAsync(PlanDto planDto)
         {
-            var (plan, error) = await GetPlanForLeadAsync(planDto.Id);
+            var (plan, error) = await GetPlanToAcceptAsync(planDto.Id);
             if (plan == null)
                 return error;
 
-            plan.AcceptedAt = DateTime.Now;
+            plan.Status = "Accepted";
+            plan.AcceptedAt = DateTime.UtcNow;
             plan.IsAccepted = true;
             plan.AcceptedBy = _currentUserService.EmployeeId;
 
@@ -270,7 +227,7 @@ namespace SPMS.Server.Services
 
         public async Task<string?> UpdateAndAcceptPlanAsync(PlanDto planDto)
         {
-            var (plan, error) = await GetPlanForLeadAsync(planDto.Id);
+            var (plan, error) = await GetPlanToAcceptAsync(planDto.Id);
             if (plan == null)
                 return error;
 
@@ -311,11 +268,12 @@ namespace SPMS.Server.Services
                 plan.PlannedEnd = planDto.EndTime;
                 plan.Comment = comment;
                 plan.IsUpdated = true;
-                plan.UpdatedAt = DateTime.Now;
+                plan.UpdatedAt = DateTime.UtcNow;
                 plan.UpdatedBy = _currentUserService.EmployeeId;
             }
 
-            plan.AcceptedAt = DateTime.Now;
+            plan.Status = changed ? "Updated" : "Accepted";
+            plan.AcceptedAt = DateTime.UtcNow;
             plan.IsAccepted = true;
             plan.AcceptedBy = _currentUserService.EmployeeId;
 
