@@ -17,7 +17,7 @@ Rather than a generic CRUD demo, this project focuses on the kind of decisions a
 
 **Stack:** React (Vite) · ASP.NET Core Web API · Entity Framework Core · MSSQL · JWT authentication
 
-**Shift Supervisor plans → Crew Lead accepts (or adjusts) → Crew logs actuals → Plan vs. Actual**
+**Mine Planner plans → Shift Supervisor starts the shift and accepts (or adjusts) plans → Crew Lead logs actuals → Plan vs. Actual**
 
 ![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
 ![C#](https://img.shields.io/badge/C%23-ASP.NET%20Core%20Web%20API-239120?logo=csharp&logoColor=white)
@@ -174,13 +174,15 @@ All endpoints except login require `Authorization: Bearer <token>`.
 |---|---|---|---|
 | `POST` | `/api/Login` | Authenticate, receive JWT | `{ "employeeNumber": "001", "password": "..." }` |
 | `POST` | `/api/Employee` | Create employee + login credentials | `{ "name": "Jane Doe", "roleId": 2 }` |
-| `POST` | `/api/Plan` | Create a production plan | `PlanDto` |
-| `GET` | `/api/Plan` | Get the plan for the logged-in crew lead | — |
-| `POST` | `/api/Plan` *(accept)* | Accept a plan | `PlanDto` (id) |
-| `POST` | `/api/Plan` *(update & accept)* | Adjust then accept a plan | `PlanDto` |
-| `POST` | `/api/Shift` | Log a shift event | `{ "shiftId": 1, "logType": "OnShift" }` |
-
-> ℹ️ The accept and update-and-accept actions are being given dedicated route templates (e.g. `/api/Plan/accept`, `/api/Plan/update-accept`).
+| `POST` | `/api/Plan/CreatePlan` | Create a plan (MinePlanner, ShiftSupervisor, Admin). A supervisor's plan in a running shift is auto-accepted | `PlanDto` |
+| `GET` | `/api/Plan/GetMyPlans` | Plans the signed-in user created, with status | — |
+| `POST` | `/api/Plan/AcceptPlan` | Accept a plan (ShiftSupervisor, Admin; shift must be running) | `PlanDto` (id) |
+| `POST` | `/api/Plan/UpdateAndAccept` | Adjust then accept a plan (same rules) | `PlanDto` |
+| `GET` | `/api/Shift/Overview?date=&shiftType=` | Shift state (NotStarted / Running / Ended) plus its plans | — |
+| `POST` | `/api/Shift/Start` | Start a shift (Morning / Afternoon / Night) | `{ "date": "2026-10-12", "shiftType": "Morning" }` |
+| `POST` | `/api/Shift/End` | End a running shift, locking actuals | `{ "id": 1 }` |
+| `GET` | `/api/Actuals/GetMyPlans` | Crew lead's accepted plans in running shifts, with live variance | — |
+| `POST` | `/api/Actuals/Log` | Log a cumulative actual (CrewLead). Asks for a reason when behind plan | `{ "planId": 1, "value": 120, "readingTime": "2026-10-12T09:30:00", "comment": null }` |
 
 <details>
 <summary><b>Example — login response</b></summary>
@@ -249,7 +251,7 @@ dotnet user-secrets set "Jwt:Audience" "ShiftProductionManagementSystem"
 The schema is database-first (snake_case tables mapped in `AppDbContext`). Create `SPMSDB` and its tables, then seed the lookup tables:
 
 ```sql
-INSERT INTO role_master (role, is_active, is_deleted) VALUES ('Admin',1,0), ('ShiftSupervisor',1,0), ('CrewLead',1,0), ('Operator',1,0);
+INSERT INTO role_master (role, is_active, is_deleted) VALUES ('Admin',1,0), ('MinePlanner',1,0), ('ShiftSupervisor',1,0), ('CrewLead',1,0);
 INSERT INTO area_master (area_name, is_deleted) VALUES ('4200L - Heading 12',0), ('4400L - Stope 7',0), ('Surface - ROM Pad',0);
 INSERT INTO plan_type_master (type, unit, is_deleted) VALUES ('Development Drilling','m',0), ('Mucking','t',0), ('Ground Support - Bolting','bolts',0), ('Haulage','t',0);
 ```

@@ -86,7 +86,16 @@ builder.Services.AddCors(options =>
 
 
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Role names are matched ignoring case/spaces (see RoleNames.Has)
+    options.AddPolicy(Policies.PlanCreate, policy => policy.RequireAssertion(ctx =>
+        RoleNames.Has(ctx.User, RoleNames.Admin, RoleNames.MinePlanner, RoleNames.ShiftSupervisor)));
+    options.AddPolicy(Policies.ShiftManage, policy => policy.RequireAssertion(ctx =>
+        RoleNames.Has(ctx.User, RoleNames.Admin, RoleNames.ShiftSupervisor)));
+    options.AddPolicy(Policies.ActualsLog, policy => policy.RequireAssertion(ctx =>
+        RoleNames.Has(ctx.User, RoleNames.CrewLead)));
+});
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUserService>();
@@ -99,6 +108,7 @@ builder.Services.AddScoped<IAreaService, AreaService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ICrewService, CrewService>();
 builder.Services.AddScoped<IPlanTypeService, PlanTypeService>();
+builder.Services.AddScoped<IActualService, ActualsService>();
 
 var app = builder.Build();
 

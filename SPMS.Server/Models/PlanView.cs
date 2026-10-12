@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace SPMS.Server.Models
 {
+    // Read-only row from v_plan_variance. All variance maths is done in the view.
     [Keyless]
     public class PlanView
     {
@@ -18,7 +19,28 @@ namespace SPMS.Server.Models
         public long? LeadEmpId { get; set; }
         public long? CrewId {  get; set; }
         public string? EmpName { get; set; }
-        public long? ActualValue { get; set; }
         public DateTime? ActualLoggedAt { get; set; }
+
+        // status + who did what
+        public string? Status { get; set; }
+        public long? ShiftId { get; set; }
+        public string? CreatedByName { get; set; }
+        public string? AcceptedByName { get; set; }
+        public DateTime? AcceptedAt { get; set; }
+        public string? UpdatedByName { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+
+        // shift state: NotStarted | Running | Ended
+        public string? ShiftStatus { get; set; }
+
+        // variance tracking
+        public decimal? Actual { get; set; }
+        public decimal? Expected { get; set; }
+        public decimal? VarianceUnits { get; set; }
+        public decimal? VariancePct { get; set; }
+        public string? VarianceStatus { get; set; }
+        public int? MinutesSinceUpdate { get; set; }
+        public decimal? ProjectedEnd { get; set; }
+        public decimal? ProjectedShortfall { get; set; }
     }
 }

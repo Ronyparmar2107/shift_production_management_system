@@ -78,6 +78,9 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(50)
                 .IsUnicode(false)
                 .HasColumnName("value");
+            entity.Property(e => e.ReadingTime)
+                .HasColumnType("datetime")
+                .HasColumnName("reading_time");
         });
 
         modelBuilder.Entity<AreaMaster>(entity =>
@@ -281,6 +284,10 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
             entity.Property(e => e.IsAccepted).HasColumnName("is_accepted");
             entity.Property(e => e.AcceptedBy).HasColumnName("accepted_by");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasColumnName("status");
             entity.Property(e => e.AcceptedAt)
             .HasColumnType("datetime")
             .HasColumnName("accepted_at");
@@ -440,7 +447,22 @@ public partial class AppDbContext : DbContext
               entity.Property(e => e.ActualLoggedAt)
               .HasColumnName("actuals_logged_at")
               .HasColumnType("datetime");
-              entity.Property(e => e.ActualValue).HasColumnName("actual_value");
+              entity.Property(e => e.Status).HasColumnName("status");
+              entity.Property(e => e.ShiftId).HasColumnName("shift_id");
+              entity.Property(e => e.CreatedByName).HasColumnName("created_by_name");
+              entity.Property(e => e.AcceptedByName).HasColumnName("accepted_by_name");
+              entity.Property(e => e.AcceptedAt).HasColumnName("accepted_at").HasColumnType("datetime");
+              entity.Property(e => e.UpdatedByName).HasColumnName("updated_by_name");
+              entity.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasColumnType("datetime");
+              entity.Property(e => e.ShiftStatus).HasColumnName("shift_status");
+              entity.Property(e => e.Actual).HasColumnName("actual").HasColumnType("decimal(28,10)");
+              entity.Property(e => e.Expected).HasColumnName("expected").HasColumnType("decimal(28,10)");
+              entity.Property(e => e.VarianceUnits).HasColumnName("variance_units").HasColumnType("decimal(28,10)");
+              entity.Property(e => e.VariancePct).HasColumnName("variance_pct").HasColumnType("decimal(38,10)");
+              entity.Property(e => e.VarianceStatus).HasColumnName("variance_status");
+              entity.Property(e => e.MinutesSinceUpdate).HasColumnName("minutes_since_update");
+              entity.Property(e => e.ProjectedEnd).HasColumnName("projected_end").HasColumnType("decimal(38,10)");
+              entity.Property(e => e.ProjectedShortfall).HasColumnName("projected_shortfall").HasColumnType("decimal(38,10)");
               entity.Property(e => e.AreaName).HasColumnName("area_name");
               entity.Property(e => e.CrewId).HasColumnName("crew_id");
               entity.Property(e => e.EmpName).HasColumnName("emp_name");

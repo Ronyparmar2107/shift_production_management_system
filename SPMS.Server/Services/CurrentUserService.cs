@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 
 namespace SPMS.Server.Services
 {
@@ -19,6 +19,12 @@ namespace SPMS.Server.Services
 
                 return long.TryParse(claimId, out var id) ? id : null;
             }
+        }
+
+        public bool IsInRole(string role)
+        {
+            var user = _contextAccessor.HttpContext?.User;
+            return user != null && RoleNames.Has(user, role);
         }
     }
 }

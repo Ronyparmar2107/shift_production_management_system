@@ -1,6 +1,6 @@
 namespace SPMS.Server.DTOs
 {
-    // A plan as shown to the person who created it, with its acceptance status
+    // A plan as shown on the planner / supervisor screens, with its acceptance status
     public class PlanStatusDto
     {
         public long PlanId { get; set; }
@@ -16,10 +16,13 @@ namespace SPMS.Server.DTOs
         public DateTime? EndTime { get; set; }
         public string? Comment { get; set; }
 
-        // "Pending" | "Accepted" | "Accepted with changes"
+        // "Pending" | "Accepted" | "Updated"
         public string Status { get; set; } = "Pending";
+        public string? CreatedByName { get; set; }
         public string? AcceptedByName { get; set; }
         public DateTime? AcceptedAt { get; set; }
+        public string? UpdatedByName { get; set; }
+        public DateTime? UpdatedAt { get; set; }
         public DateTime? CreatedAt { get; set; }
     }
 }

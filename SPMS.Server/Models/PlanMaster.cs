@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace SPMS.Server.Models;
@@ -22,6 +22,9 @@ public partial class PlanMaster : BaseEntity
 
     public string? Comment { get; set; }
     public bool IsActive { get; set; } = true;
+
+    // "Pending" | "Accepted" | "Updated"  (IsAccepted / IsUpdated flags are kept in step with it)
+    public string Status { get; set; } = "Pending";
 
     public bool IsAccepted { get; set; } = false;
 
